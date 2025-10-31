@@ -22,31 +22,50 @@ export async function POST(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     const { data: { session } } = await supabase.auth.getSession()
 
-    // Call Supabase Edge Function
+    // Call Supabase Edge Function with timeout
     const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token || supabaseAnonKey}`,
-        apikey: supabaseAnonKey,
-      },
-      body: JSON.stringify({
-        ...payload,
-        user_id: user.id,
-      }),
-    })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+    
+    try {
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify({
+          ...payload,
+          user_id: user.id,
+        }),
+        signal: controller.signal,
+      })
+      
+      clearTimeout(timeoutId)
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-      return NextResponse.json(
-        { error: errorData.error || 'Edge function error' },
-        { status: response.status }
-      )
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        return NextResponse.json(
+          { error: errorData.error || 'Edge function error' },
+          { status: response.status }
+        )
+      }
+
+      const data = await response.json()
+      return NextResponse.json(data)
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId)
+      
+      if (fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { error: 'Request timeout - the operation took too long' },
+          { status: 504 }
+        )
+      }
+      
+      throw fetchError // Re-throw to be caught by outer catch
     }
-
-    const data = await response.json()
-    return NextResponse.json(data)
   } catch (error: any) {
     console.error('API route error:', error)
     return NextResponse.json(

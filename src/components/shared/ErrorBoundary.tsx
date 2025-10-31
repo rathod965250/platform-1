@@ -29,7 +29,35 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo)
+    // Log error to console in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error Boundary caught an error:', error, errorInfo)
+      console.error('Error stack:', error.stack)
+      console.error('Component stack:', errorInfo.componentStack)
+    }
+    
+    // Log to error tracking service in production
+    // Example: Sentry.captureException(error, { contexts: { react: errorInfo } })
+    // For now, log structured error data
+    if (typeof window !== 'undefined' && window.navigator?.sendBeacon) {
+      try {
+        const errorData = {
+          message: error.message,
+          stack: error.stack,
+          componentStack: errorInfo.componentStack,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          url: window.location.href,
+        }
+        // In production, send to error tracking service
+        // navigator.sendBeacon('/api/errors', JSON.stringify(errorData))
+      } catch (e) {
+        // Silently fail if error tracking fails
+      }
+    }
+    
+    // Update state to show error UI
+    this.setState({ hasError: true, error })
   }
 
   handleReset = () => {

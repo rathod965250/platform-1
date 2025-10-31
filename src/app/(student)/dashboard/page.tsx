@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardContent } from '@/components/dashboard/DashboardContent'
 import { PageSkeleton } from '@/components/shared/PageSkeleton'
+import type { TestAttemptWithRelations, AdaptiveStateWithRelations } from '@/types/database.types'
 
 export const metadata = {
   title: 'Dashboard | Aptitude Preparation Platform',
@@ -67,7 +68,12 @@ export default async function DashboardPage() {
 
   const avgScore = totalTests > 0
     ? testAttempts!.reduce((sum, attempt) => {
-        const percentage = (attempt.score / (attempt.test as any).total_marks) * 100
+        // Safe null check for test relation
+        const test = attempt.test
+        if (!test || !test.total_marks) {
+          return sum // Skip if test data is missing
+        }
+        const percentage = (attempt.score / test.total_marks) * 100
         return sum + percentage
       }, 0) / totalTests
     : 0
@@ -81,15 +87,18 @@ export default async function DashboardPage() {
 
   // Get recent activity (last 5 items combined)
   const recentActivity = [
-    ...(testAttempts?.slice(0, 3).map(attempt => ({
-      type: 'test' as const,
-      id: attempt.id,
-      title: (attempt.test as any)?.title || 'Test',
-      date: attempt.submitted_at!,
-      score: attempt.score,
-      totalMarks: (attempt.test as any)?.total_marks || 100,
-      testId: (attempt.test as any)?.id,
-    })) || []),
+    ...(testAttempts?.slice(0, 3).map(attempt => {
+      const test = attempt.test
+      return {
+        type: 'test' as const,
+        id: attempt.id,
+        title: test?.title || 'Test',
+        date: attempt.submitted_at || attempt.created_at, // Safe fallback
+        score: attempt.score,
+        totalMarks: test?.total_marks || 100, // Default to 100 if test is missing
+        testId: test?.id || attempt.test_id, // Fallback to test_id if relation is null
+      }
+    }) || []),
     ...(practiceSessions?.slice(0, 2).map(session => ({
       type: 'practice' as const,
       id: session.id,
@@ -103,11 +112,16 @@ export default async function DashboardPage() {
     .slice(0, 5)
 
   // Performance trend data (last 10 test attempts)
-  const performanceTrend = testAttempts?.slice(0, 10).reverse().map((attempt, index) => ({
-    index: index + 1,
-    score: ((attempt.score / (attempt.test as any).total_marks) * 100).toFixed(1),
-    date: new Date(attempt.submitted_at!).toLocaleDateString(),
-  })) || []
+  const performanceTrend = testAttempts?.slice(0, 10).reverse().map((attempt, index) => {
+    const test = attempt.test
+    const totalMarks = test?.total_marks || 100 // Safe fallback
+    const percentage = totalMarks > 0 ? (attempt.score / totalMarks) * 100 : 0
+    return {
+      index: index + 1,
+      score: percentage.toFixed(1),
+      date: new Date(attempt.submitted_at || attempt.created_at).toLocaleDateString(), // Safe fallback
+    }
+  }) || []
 
   // Fetch adaptive states for mastery scores
   const { data: adaptiveStates } = await supabase
@@ -136,7 +150,8 @@ export default async function DashboardPage() {
         `)
         .eq('attempt_id', attempt.id)
 
-      answers?.forEach((answer: any) => {
+      answers?.forEach((answer) => {
+        // Safe navigation for nested relations
         const categoryName = answer.question?.subcategory?.category?.name || 'Other'
         if (!categoryPerformance[categoryName]) {
           categoryPerformance[categoryName] = { correct: 0, total: 0 }
@@ -150,9 +165,11 @@ export default async function DashboardPage() {
   }
 
   // Also check adaptive states for mastery scores
-  adaptiveStates?.forEach((state: any) => {
+  adaptiveStates?.forEach((state) => {
     const categoryName = state.category?.name || 'Other'
-    const mastery = parseFloat(state.mastery_score || 0)
+    const mastery = typeof state.mastery_score === 'number' 
+      ? state.mastery_score 
+      : parseFloat(String(state.mastery_score || 0))
     // If mastery < 40%, it's a weak area
     if (mastery < 0.4 && !categoryPerformance[categoryName]) {
       categoryPerformance[categoryName] = { correct: 0, total: 10 } // Estimate
@@ -168,9 +185,11 @@ export default async function DashboardPage() {
     .map(([name]) => name)
 
   // Also add categories with low mastery scores
-  adaptiveStates?.forEach((state: any) => {
+  adaptiveStates?.forEach((state) => {
     const categoryName = state.category?.name || 'Other'
-    const mastery = parseFloat(state.mastery_score || 0)
+    const mastery = typeof state.mastery_score === 'number'
+      ? state.mastery_score
+      : parseFloat(String(state.mastery_score || 0))
     if (mastery < 0.4 && !weakAreas.includes(categoryName)) {
       weakAreas.push(categoryName)
     }
@@ -178,9 +197,12 @@ export default async function DashboardPage() {
 
   // Build mastery levels map
   const masteryLevels: Record<string, number> = {}
-  adaptiveStates?.forEach((state: any) => {
+  adaptiveStates?.forEach((state) => {
     if (state.category?.name) {
-      masteryLevels[state.category.name] = parseFloat(state.mastery_score || 0)
+      const mastery = typeof state.mastery_score === 'number'
+        ? state.mastery_score
+        : parseFloat(String(state.mastery_score || 0))
+      masteryLevels[state.category.name] = mastery
     }
   })
 

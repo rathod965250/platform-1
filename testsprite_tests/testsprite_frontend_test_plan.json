@@ -1,0 +1,643 @@
+[
+  {
+    "id": "TC001",
+    "title": "Email/Password Login Success",
+    "description": "Verify that a user can successfully log in using valid email and password credentials.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid email and correct password."
+      },
+      {
+        "type": "action",
+        "description": "Click the login button."
+      },
+      {
+        "type": "assertion",
+        "description": "User should be redirected to the dashboard page."
+      },
+      {
+        "type": "assertion",
+        "description": "User session should be established and accessible."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Email/Password Login Failure",
+    "description": "Verify the login fails with incorrect email or password and appropriate error message is shown.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter invalid email or incorrect password."
+      },
+      {
+        "type": "action",
+        "description": "Click the login button."
+      },
+      {
+        "type": "assertion",
+        "description": "The login should fail."
+      },
+      {
+        "type": "assertion",
+        "description": "An error message indicating invalid credentials should be displayed."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Google OAuth Login Success",
+    "description": "Verify that a user can successfully log in using the Google OAuth option.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Click on the Google OAuth login button."
+      },
+      {
+        "type": "action",
+        "description": "Complete Google authentication flow with valid Google account."
+      },
+      {
+        "type": "assertion",
+        "description": "User is redirected to the dashboard page."
+      },
+      {
+        "type": "assertion",
+        "description": "User session is correctly established with linked Google account."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Password Reset Flow",
+    "description": "Verify that the password reset process works correctly from request to completion.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the forgot password page."
+      },
+      {
+        "type": "action",
+        "description": "Submit a valid registered email address."
+      },
+      {
+        "type": "assertion",
+        "description": "A password reset email is sent to the user."
+      },
+      {
+        "type": "action",
+        "description": "Follow the reset link and provide a new valid password."
+      },
+      {
+        "type": "action",
+        "description": "Submit the new password."
+      },
+      {
+        "type": "assertion",
+        "description": "User can log in successfully with the new password."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Password Strength Indicator",
+    "description": "Validate that the password strength indicator reflects the entered password strength correctly during signup and password reset.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to signup or password reset page."
+      },
+      {
+        "type": "action",
+        "description": "Input various passwords ranging from weak to strong."
+      },
+      {
+        "type": "assertion",
+        "description": "Password strength indicator updates dynamically showing correct strength levels."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Practice Mode Topic Selection and Configuration",
+    "description": "Ensure practice mode displays all topics correctly and allows configuration of question count, difficulty, and timer.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to practice mode from dashboard or homepage."
+      },
+      {
+        "type": "assertion",
+        "description": "All available topics are listed and selectable."
+      },
+      {
+        "type": "action",
+        "description": "Select a topic."
+      },
+      {
+        "type": "action",
+        "description": "Configure number of questions, difficulty level, and time limit."
+      },
+      {
+        "type": "assertion",
+        "description": "Settings are applied and reflected correctly on interface."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Practice Mode Real-time Feedback and Scoring",
+    "description": "Verify that users receive immediate feedback on answers and final practice summary shows accurate scoring and stats.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start a practice session with configured settings."
+      },
+      {
+        "type": "action",
+        "description": "Answer questions sequentially."
+      },
+      {
+        "type": "assertion",
+        "description": "Each answer submission gives immediate correct/incorrect feedback."
+      },
+      {
+        "type": "action",
+        "description": "Complete the entire practice session."
+      },
+      {
+        "type": "assertion",
+        "description": "Practice summary shows correct number of attempted, correct, wrong answers and detailed breakdown."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Test Mode Configuration and Start",
+    "description": "Test that users can select and configure test types (mixed, PYQs, custom), review instructions, and start test with system checks.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to test mode."
+      },
+      {
+        "type": "action",
+        "description": "Select a test type such as Mixed or PYQs."
+      },
+      {
+        "type": "action",
+        "description": "Configure test parameters (number of questions, difficulty, timer if applicable)."
+      },
+      {
+        "type": "action",
+        "description": "Review instruction screen and ensure mandatory system checks pass."
+      },
+      {
+        "type": "action",
+        "description": "Start the timed test."
+      },
+      {
+        "type": "assertion",
+        "description": "Test starts successfully in full-screen mode with all interface components loaded."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Test-Taking Interface Functionality",
+    "description": "Validate the test interface including question navigation, marking for review, saving answers, auto-save, and countdown timer with warnings.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "During an active test, navigate between questions using question palette and navigation buttons."
+      },
+      {
+        "type": "action",
+        "description": "Mark certain questions for review and unmark them."
+      },
+      {
+        "type": "action",
+        "description": "Save answers manually and check that auto-save triggers periodically."
+      },
+      {
+        "type": "assertion",
+        "description": "Answers are saved accurately and persist on navigation or page reload."
+      },
+      {
+        "type": "assertion",
+        "description": "Countdown timer displays time left and shows warnings when 5 minutes remain."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Test Submission and Confirmation Flow",
+    "description": "Verify the test submission flow including confirmation dialog and redirection to results page on successful submission.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Submit the test using the submit button."
+      },
+      {
+        "type": "assertion",
+        "description": "A confirmation prompt is displayed to confirm test submission."
+      },
+      {
+        "type": "action",
+        "description": "Confirm submission."
+      },
+      {
+        "type": "assertion",
+        "description": "Test is submitted and results are saved in backend."
+      },
+      {
+        "type": "assertion",
+        "description": "User is redirected to the test results dashboard with analytics."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Test Results and Analytics Accuracy",
+    "description": "Ensure that the test results page shows accurate score breakdown, charts, AI insights, solution review, and allows PDF report download.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the test results page after test submission."
+      },
+      {
+        "type": "assertion",
+        "description": "Scores and subcategory wise performance are displayed correctly."
+      },
+      {
+        "type": "assertion",
+        "description": "Performance charts and comparison metrics are rendered."
+      },
+      {
+        "type": "assertion",
+        "description": "AI insights and personalized suggestions are shown."
+      },
+      {
+        "type": "action",
+        "description": "Review detailed solutions with filtering options."
+      },
+      {
+        "type": "action",
+        "description": "Download the PDF report successfully."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Student Dashboard Displays Correct Data",
+    "description": "Verify the student dashboard shows accurate recent activities, statistics cards, performance trends charts, and AI recommendations.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the student dashboard after login."
+      },
+      {
+        "type": "assertion",
+        "description": "Recent activities reflect latest tests and practice sessions accurately."
+      },
+      {
+        "type": "assertion",
+        "description": "Statistics cards display correct metrics like total tests taken, average score, etc."
+      },
+      {
+        "type": "assertion",
+        "description": "Performance trends charts are rendered with correct historical data."
+      },
+      {
+        "type": "assertion",
+        "description": "AI-driven recommendations are appropriate and visible."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "User Profile Update and Dark Mode Toggle",
+    "description": "Test that user profile fields are editable and saved correctly, and that dark mode toggle persists preferences across sessions.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the user profile management page."
+      },
+      {
+        "type": "action",
+        "description": "Edit profile fields such as name, email, preferences and save changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Changes are saved and reflected after page reload."
+      },
+      {
+        "type": "action",
+        "description": "Toggle dark mode on and off."
+      },
+      {
+        "type": "assertion",
+        "description": "Dark mode state persists after user logout and new login."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Admin Panel CRUD for Categories",
+    "description": "Verify that admins can create, read, update, and delete categories via the admin panel interface.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as admin and navigate to categories management page."
+      },
+      {
+        "type": "action",
+        "description": "Create a new category with valid details."
+      },
+      {
+        "type": "assertion",
+        "description": "New category appears in the list with correct details."
+      },
+      {
+        "type": "action",
+        "description": "Edit the created category and update details."
+      },
+      {
+        "type": "assertion",
+        "description": "Updated details are saved and displayed correctly."
+      },
+      {
+        "type": "action",
+        "description": "Delete the category."
+      },
+      {
+        "type": "assertion",
+        "description": "Category is removed from the list and database."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Admin Panel CRUD for Tests and Questions",
+    "description": "Verify that the admin can manage tests and questions fully with create, update, delete operations from the admin panel.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the tests management page in admin panel."
+      },
+      {
+        "type": "action",
+        "description": "Create a new test with valid parameters."
+      },
+      {
+        "type": "assertion",
+        "description": "New test is visible and accurate."
+      },
+      {
+        "type": "action",
+        "description": "Edit existing test details."
+      },
+      {
+        "type": "assertion",
+        "description": "Edits are reflected after save."
+      },
+      {
+        "type": "action",
+        "description": "Delete a test and confirm."
+      },
+      {
+        "type": "assertion",
+        "description": "Test no longer appears in the list."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to questions management page."
+      },
+      {
+        "type": "action",
+        "description": "Create, edit, and delete questions linked to tests."
+      },
+      {
+        "type": "assertion",
+        "description": "Changes are consistent and reflected in practice and test mode."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Adaptive Practice AI Difficulty Adjustment and Mastery Tracking",
+    "description": "Ensure the adaptive practice system adjusts question difficulty based on user's performance and tracks mastery accurately.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start an adaptive practice session for a category."
+      },
+      {
+        "type": "action",
+        "description": "Answer initial questions correctly and observe adaptive difficulty increase."
+      },
+      {
+        "type": "action",
+        "description": "Answer some questions incorrectly and observe difficulty adjustment."
+      },
+      {
+        "type": "assertion",
+        "description": "Question difficulty changes dynamically based on performance."
+      },
+      {
+        "type": "assertion",
+        "description": "Mastery level is updated correctly and visible in the practice summary."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Global and Segmented Leaderboards Display",
+    "description": "Verify that leaderboards show correct user rankings, badges, and progress for global, weekly, monthly, and test-specific views.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the leaderboards page."
+      },
+      {
+        "type": "assertion",
+        "description": "Global leaderboard displays users ranked correctly by total points or tests."
+      },
+      {
+        "type": "action",
+        "description": "Switch to weekly, monthly, and test-specific leaderboards."
+      },
+      {
+        "type": "assertion",
+        "description": "Leaderboards update accordingly with correct ranks and badges."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Responsive and Accessibility Compliance",
+    "description": "Check that the application UI is responsive on desktop, tablet, and mobile, and meets accessibility standards (ARIA, keyboard navigation, color contrast).",
+    "category": "ui",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the platform using different devices and screen sizes."
+      },
+      {
+        "type": "assertion",
+        "description": "UI components adjust layout and sizing appropriately."
+      },
+      {
+        "type": "action",
+        "description": "Navigate the app using keyboard only."
+      },
+      {
+        "type": "assertion",
+        "description": "All interactive elements are reachable and usable via keyboard."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify ARIA labels and roles are present and correct."
+      },
+      {
+        "type": "assertion",
+        "description": "Colors meet WCAG contrast standards."
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "SEO Metadata and Structured Data Verification",
+    "description": "Validate that pages have correct SEO metadata, structured JSON-LD data, canonical URLs, sitemap and robots.txt are generated properly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Inspect page sources for presence of metadata tags (title, description, keywords)."
+      },
+      {
+        "type": "assertion",
+        "description": "Structured data in JSON-LD format is present and valid."
+      },
+      {
+        "type": "action",
+        "description": "Verify canonical URLs are set to the preferred page URLs."
+      },
+      {
+        "type": "action",
+        "description": "Check sitemap.xml and robots.txt files are accessible and contain appropriate entries."
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "API Route Authentication and Error Handling",
+    "description": "Ensure all API routes related to test operations and practice sessions are secured, require authentication, and properly handle error states.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to call test and practice API routes without authentication."
+      },
+      {
+        "type": "assertion",
+        "description": "API returns unauthorized error response."
+      },
+      {
+        "type": "action",
+        "description": "Call API routes with valid authentication but invalid or missing parameters."
+      },
+      {
+        "type": "assertion",
+        "description": "API responds with appropriate error codes and descriptive messages."
+      },
+      {
+        "type": "action",
+        "description": "Call API with valid parameters and authentication."
+      },
+      {
+        "type": "assertion",
+        "description": "API successfully processes request and returns correct data."
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "Progressive Web App Offline Support and Install Prompt",
+    "description": "Verify the app functions offline with cached content and triggers install prompt for supported browsers.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load the application and cache pages and assets."
+      },
+      {
+        "type": "action",
+        "description": "Disconnect from the internet."
+      },
+      {
+        "type": "action",
+        "description": "Navigate the app pages that were previously accessed."
+      },
+      {
+        "type": "assertion",
+        "description": "Cached pages load successfully without errors."
+      },
+      {
+        "type": "action",
+        "description": "Observe that the install prompt is displayed on supported browsers."
+      }
+    ]
+  }
+]

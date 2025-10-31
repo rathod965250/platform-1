@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000/login",
+  "loginUser": "test@example.com",
+  "loginPassword": "your-test-password",
+  "executionArgs": {
+    "projectName": "platform",
+    "projectPath": "C:\\Users\\ratho\\OneDrive\\Desktop\\platform",
+    "testIds": [],
+    "additionalInstruction": "Execute comprehensive test suite including: unit tests for components, integration tests for authentication flow, API route tests, state management tests, and end-to-end user flow tests. Generate detailed error reports with severity classification (critical, major, minor), exact error messages, stack traces, reproduction steps, affected components, and performance metrics. Include screenshots for UI-related errors and code coverage statistics. Use test credentials: Username: test@example.com, Password: your-test-password",
+    "envs": {
+      "API_KEY": "sk-user-xjkCCSJQCWOi0nCgYQGwOV_LcNhadWgODfs-S7VYIqx9Du_w_ce8uLC95e3lIRIxQ0jd4jwxQclQ1_dit1ZBajDHfK_Y442ccBp8C8MnYafq88p4duNSGhshs8dqw5tAmsU"
+    }
+  }
+}

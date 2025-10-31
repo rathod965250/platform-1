@@ -21,13 +21,37 @@ import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 import { X, Plus } from 'lucide-react'
 
+// Question options schema based on question type
+const questionOptionsSchema = z.union([
+  // MCQ format: { options: string[], correct_answer: string, explanation?: string }
+  z.object({
+    options: z.array(z.string().min(1)).min(2, 'At least 2 options required').max(10, 'Maximum 10 options allowed'),
+    correct_answer: z.string().min(1, 'Correct answer is required'),
+    explanation: z.string().optional(),
+  }),
+  // True/False format: { A: string, B: string, correct_answer: 'A' | 'B', explanation?: string }
+  z.object({
+    A: z.string().min(1, 'Option A is required'),
+    B: z.string().min(1, 'Option B is required'),
+    C: z.string().optional(),
+    D: z.string().optional(),
+    correct_answer: z.string().min(1, 'Correct answer is required'),
+    explanation: z.string().optional(),
+  }),
+  // Fill in blank format: { correct_answer: string, explanation?: string }
+  z.object({
+    correct_answer: z.string().min(1, 'Correct answer is required'),
+    explanation: z.string().optional(),
+  }),
+])
+
 // Question schema
 const questionSchema = z.object({
   test_id: z.string().uuid('Please select a test').optional().nullable(),
   subcategory_id: z.string().uuid('Please select a subcategory'),
   question_type: z.enum(['mcq', 'true_false', 'fill_blank']),
   question_text: z.string().min(10, 'Question must be at least 10 characters'),
-  options: z.any(), // Will validate based on question_type
+  options: questionOptionsSchema, // Properly typed validation
   correct_answer: z.string().min(1, 'Correct answer is required'),
   explanation: z.string().min(10, 'Explanation must be at least 10 characters'),
   marks: z.number().min(1, 'Marks must be at least 1'),

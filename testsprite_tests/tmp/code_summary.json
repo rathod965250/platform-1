@@ -1,0 +1,223 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "Next.js 16",
+    "React 19",
+    "Tailwind CSS",
+    "PostgreSQL",
+    "Supabase",
+    "Zustand",
+    "React Hook Form",
+    "Zod",
+    "Recharts",
+    "shadcn/ui",
+    "Lucide React",
+    "KaTeX",
+    "jsPDF",
+    "Sonner"
+  ],
+  "features": [
+    {
+      "name": "Authentication System",
+      "description": "Complete authentication system with email/password login, signup, Google OAuth, password reset, and session management",
+      "files": [
+        "src/app/(auth)/login/page.tsx",
+        "src/app/(auth)/signup/page.tsx",
+        "src/app/(auth)/forgot-password/page.tsx",
+        "src/components/auth/LoginForm.tsx",
+        "src/components/auth/SignupForm.tsx",
+        "src/components/auth/PasswordStrengthIndicator.tsx",
+        "src/components/auth/AuthDebug.tsx",
+        "src/lib/validations/auth.ts",
+        "src/store/authStore.ts",
+        "src/middleware.ts",
+        "src/lib/supabase/client.ts",
+        "src/lib/supabase/server.ts",
+        "src/lib/supabase/middleware.ts"
+      ]
+    },
+    {
+      "name": "Admin Panel",
+      "description": "Complete admin interface for managing categories, subcategories, tests, and questions with CRUD operations",
+      "files": [
+        "src/app/(admin)/admin/page.tsx",
+        "src/app/(admin)/admin/categories/page.tsx",
+        "src/app/(admin)/admin/tests/page.tsx",
+        "src/app/(admin)/admin/tests/[id]/page.tsx",
+        "src/app/(admin)/admin/tests/[id]/edit/page.tsx",
+        "src/app/(admin)/admin/tests/new/page.tsx",
+        "src/app/(admin)/admin/questions/page.tsx",
+        "src/app/(admin)/admin/questions/[id]/page.tsx",
+        "src/app/(admin)/admin/questions/[id]/edit/page.tsx",
+        "src/app/(admin)/admin/questions/new/page.tsx",
+        "src/components/admin/AdminSidebar.tsx",
+        "src/components/admin/TestForm.tsx",
+        "src/components/admin/QuestionForm.tsx",
+        "src/components/admin/DeleteTestButton.tsx",
+        "src/components/admin/DeleteQuestionButton.tsx"
+      ]
+    },
+    {
+      "name": "Test-Taking Interface",
+      "description": "Full-featured test interface with timer, question navigation, multiple question types (MCQ, True-False, Fill-in-blanks), auto-save, and auto-submit",
+      "files": [
+        "src/app/(student)/test/page.tsx",
+        "src/app/(student)/test/[testId]/instructions/page.tsx",
+        "src/app/(student)/test/[testId]/active/[attemptId]/page.tsx",
+        "src/components/test/ActiveTestInterface.tsx",
+        "src/components/test/QuestionDisplay.tsx",
+        "src/components/test/StartTestButton.tsx"
+      ]
+    },
+    {
+      "name": "Test Results & Analytics",
+      "description": "Comprehensive results page with score breakdown, solution review, subcategory-wise performance, and comparison metrics",
+      "files": [
+        "src/app/(student)/test/[testId]/results/[attemptId]/page.tsx",
+        "src/components/test/TestResults.tsx",
+        "src/app/(student)/results/page.tsx"
+      ]
+    },
+    {
+      "name": "Student Dashboard",
+      "description": "Analytics dashboard with performance charts, weak areas identification, AI-powered recommendations, and performance trends",
+      "files": [
+        "src/app/(student)/dashboard/page.tsx",
+        "src/components/dashboard/DashboardContent.tsx",
+        "src/components/dashboard/StudentSidebar.tsx"
+      ]
+    },
+    {
+      "name": "Leaderboard System",
+      "description": "Global, weekly, monthly, and test-specific leaderboards with ranking, badges, and progress tracking",
+      "files": [
+        "src/app/(student)/leaderboard/page.tsx",
+        "src/components/leaderboard/LeaderboardContent.tsx",
+        "src/components/leaderboard/TestLeaderboard.tsx"
+      ]
+    },
+    {
+      "name": "Adaptive Practice System",
+      "description": "AI-powered adaptive practice mode with difficulty adjustment, mastery tracking, and personalized question selection",
+      "files": [
+        "src/app/(student)/practice/page.tsx",
+        "src/app/(student)/practice/configure/[categoryId]/page.tsx",
+        "src/app/(student)/practice/adaptive/[categoryId]/start/page.tsx",
+        "src/app/(student)/practice/adaptive/[categoryId]/[sessionId]/summary/page.tsx",
+        "src/components/practice/AdaptivePracticeInterface.tsx",
+        "src/components/practice/PracticeSummary.tsx",
+        "src/app/api/adaptive/route.ts",
+        "src/types/adaptive.ts",
+        "src/store/practiceStore.ts"
+      ]
+    },
+    {
+      "name": "User Profile Management",
+      "description": "User profile editing, settings management, and preferences",
+      "files": [
+        "src/app/(student)/profile/page.tsx",
+        "src/components/profile/ProfileForm.tsx"
+      ]
+    },
+    {
+      "name": "Landing Page",
+      "description": "SEO-optimized landing page with hero section, features, testimonials, and platform statistics",
+      "files": [
+        "src/app/page.tsx",
+        "src/components/shared/CategoriesTest.tsx"
+      ]
+    },
+    {
+      "name": "API Routes",
+      "description": "Server-side API routes for test operations, practice sessions, and adaptive algorithm",
+      "files": [
+        "src/app/api/adaptive/route.ts",
+        "src/app/api/test/start/route.ts",
+        "src/app/api/test/submit/route.ts",
+        "src/app/api/practice/start/route.ts",
+        "src/app/api/practice/submit/route.ts",
+        "src/app/auth/callback/route.ts"
+      ]
+    },
+    {
+      "name": "UI Components Library",
+      "description": "Comprehensive shadcn/ui component library including buttons, forms, dialogs, cards, badges, and more",
+      "files": [
+        "src/components/ui/button.tsx",
+        "src/components/ui/card.tsx",
+        "src/components/ui/form.tsx",
+        "src/components/ui/input.tsx",
+        "src/components/ui/dialog.tsx",
+        "src/components/ui/badge.tsx",
+        "src/components/ui/checkbox.tsx",
+        "src/components/ui/select.tsx",
+        "src/components/ui/textarea.tsx",
+        "src/components/ui/table.tsx",
+        "src/components/ui/tabs.tsx",
+        "src/components/ui/progress.tsx",
+        "src/components/ui/alert.tsx",
+        "src/components/ui/avatar.tsx",
+        "src/components/ui/dropdown-menu.tsx",
+        "src/components/ui/command.tsx",
+        "src/components/ui/slider.tsx",
+        "src/components/ui/switch.tsx",
+        "src/components/ui/skeleton.tsx",
+        "src/components/ui/sonner.tsx"
+      ]
+    },
+    {
+      "name": "Shared Components",
+      "description": "Reusable components including loading skeletons, error boundaries, breadcrumbs, and display components",
+      "files": [
+        "src/components/shared/LoadingSkeleton.tsx",
+        "src/components/shared/PageSkeleton.tsx",
+        "src/components/shared/ErrorBoundary.tsx",
+        "src/components/shared/ErrorDisplay.tsx",
+        "src/components/shared/Breadcrumbs.tsx"
+      ]
+    },
+    {
+      "name": "State Management",
+      "description": "Zustand stores for authentication, test state, practice state, and UI state management",
+      "files": [
+        "src/store/authStore.ts",
+        "src/store/testStore.ts",
+        "src/store/practiceStore.ts",
+        "src/store/uiStore.ts"
+      ]
+    },
+    {
+      "name": "Database Types",
+      "description": "TypeScript type definitions for database schema, adaptive algorithm, and common types",
+      "files": [
+        "src/types/database.types.ts",
+        "src/types/adaptive.ts",
+        "src/types/index.ts"
+      ]
+    },
+    {
+      "name": "SEO & Metadata",
+      "description": "SEO optimization with metadata API, structured data, sitemap generation, and robots.txt",
+      "files": [
+        "src/app/layout.tsx",
+        "src/app/sitemap.ts",
+        "src/app/robots.ts"
+      ]
+    },
+    {
+      "name": "Utility Functions",
+      "description": "Helper functions and utilities for common operations",
+      "files": [
+        "src/lib/utils.ts"
+      ]
+    },
+    {
+      "name": "Styling & Theme",
+      "description": "Global styles, CSS variables, color palette, and theme configuration with dark mode support",
+      "files": [
+        "src/app/globals.css"
+      ]
+    }
+  ]
+}
+
