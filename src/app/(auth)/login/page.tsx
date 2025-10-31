@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { LoginForm } from '@/components/auth/LoginForm'
+import { SimpleLoginForm } from '@/components/auth/SimpleLoginForm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const metadata: Metadata = {
@@ -38,7 +38,7 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <LoginForm />
+            <SimpleLoginForm />
           </CardContent>
         </Card>
       </div>

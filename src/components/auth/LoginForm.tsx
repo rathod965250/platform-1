@@ -34,39 +34,56 @@ export function LoginForm() {
     const supabase = createClient()
 
     try {
+      console.log('Attempting login with email:', data.email)
+      
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
 
+      console.log('Login response:', { authData, authError })
+
       if (authError) {
-        toast.error(authError.message)
+        console.error('Auth error:', authError)
+        toast.error(authError.message || 'Login failed. Please check your credentials.')
         return
       }
 
-      if (authData.user) {
-        setUser(authData.user)
-        
-        // Fetch user profile
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single()
-
-        if (profileError) {
-          console.error('Error fetching profile:', profileError)
-        } else {
-          setProfile(profileData)
-        }
-
-        toast.success('Logged in successfully!')
-        router.push('/dashboard')
-        router.refresh()
+      if (!authData.user) {
+        console.error('No user data returned')
+        toast.error('Login failed. Please try again.')
+        return
       }
-    } catch (error) {
+
+      console.log('User logged in:', authData.user.email)
+      setUser(authData.user)
+      
+      // Fetch user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single()
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError)
+        // Don't block login if profile fetch fails
+        toast.warning('Logged in, but could not load profile data')
+      } else {
+        console.log('Profile loaded:', profileData)
+        setProfile(profileData)
+      }
+
+      toast.success('Logged in successfully!')
+      
+      // Small delay to ensure state updates
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      router.push('/dashboard')
+      router.refresh()
+    } catch (error: any) {
       console.error('Login error:', error)
-      toast.error('An error occurred during login')
+      toast.error(error?.message || 'An unexpected error occurred during login')
     } finally {
       setIsLoading(false)
     }

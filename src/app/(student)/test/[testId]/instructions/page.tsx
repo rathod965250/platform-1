@@ -11,12 +11,12 @@ export const metadata = {
 
 interface PageProps {
   params: Promise<{
-    id: string
+    testId: string
   }>
 }
 
 export default async function TestInstructionsPage({ params }: PageProps) {
-  const { id } = await params
+  const { testId } = await params
   const supabase = await createClient()
 
   // Check authentication
@@ -33,7 +33,7 @@ export default async function TestInstructionsPage({ params }: PageProps) {
       category:categories(name),
       questions(id)
     `)
-    .eq('id', id)
+    .eq('id', testId)
     .eq('is_published', true)
     .single()
 
