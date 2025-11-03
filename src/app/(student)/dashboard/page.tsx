@@ -85,11 +85,13 @@ export default async function DashboardPage() {
   const avgScore = totalTests > 0
     ? testAttempts!.reduce((sum, attempt) => {
         // Safe null check for test relation
-        const test = attempt.test as { id: string; title: string; test_type: string; total_marks: number } | null
-        if (!test || !test.total_marks) {
+        const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+        if (!test || typeof test !== 'object' || !('total_marks' in test) || !test.total_marks) {
           return sum // Skip if test data is missing
         }
-        const percentage = (attempt.score / test.total_marks) * 100
+        const totalMarks = typeof test.total_marks === 'number' ? test.total_marks : 0
+        if (totalMarks === 0) return sum
+        const percentage = (attempt.score / totalMarks) * 100
         return sum + percentage
       }, 0) / totalTests
     : 0
