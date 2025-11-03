@@ -47,7 +47,7 @@ export function HeroSection() {
                     <div className="w-6 h-6 rounded-full bg-primary/30 border-2 border-background" />
                     <div className="w-6 h-6 rounded-full bg-primary/40 border-2 border-background" />
                   </div>
-                  <span className="font-medium text-foreground/70">127 students joined today</span>
+                  <span className="font-medium text-foreground/70">🔥 127 students joined today</span>
                 </div>
               </div>
 
@@ -60,7 +60,7 @@ export function HeroSection() {
                   className="bg-foreground hover:bg-foreground/90 text-background shadow-sm hover:shadow-md transition-all duration-300 rounded-full px-5 md:px-6 py-5 md:py-6 text-sm md:text-base"
                 >
                   <Link href="/signup">
-                    Start Practicing Free
+                    Start Your Success Story
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -72,7 +72,7 @@ export function HeroSection() {
                   asChild
                   className="border-2 border-foreground hover:bg-accent/50 transition-all duration-300 rounded-full px-5 md:px-6 py-5 md:py-6 text-sm md:text-base bg-background"
                 >
-                  <Link href="/practice">View Demo</Link>
+                  <Link href="/practice">See Magic in Action</Link>
                 </Button>
               </div>
             </div>
@@ -171,7 +171,7 @@ export function HeroSection() {
                           'bg-chart-1'
                         ]
                         return (
-                          <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                          <div key={`day-${i}-${day}`} className="flex-1 flex flex-col items-center gap-1">
                             <div 
                               className={`w-full rounded-t-sm ${colors[i]} opacity-70`}
                               style={{ height: `${heights[i]}%` }}

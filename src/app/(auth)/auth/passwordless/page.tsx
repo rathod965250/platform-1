@@ -1,16 +1,15 @@
 'use client'
 
 import { useState, FormEvent } from 'react'
-import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Loader2, ArrowLeft, CheckCircle2, Mail, Zap } from 'lucide-react'
+import { Loader2, ArrowLeft, CheckCircle2, Mail, Zap, ArrowRight } from 'lucide-react'
 
-export default function ForgotPasswordPage() {
+export default function PasswordlessLoginPage() {
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -28,8 +27,11 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createClient()
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password?next=/auth/update-password`,
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
       })
 
       if (error) {
@@ -38,9 +40,9 @@ export default function ForgotPasswordPage() {
       }
 
       setIsSuccess(true)
-      toast.success('Password reset email sent! Check your inbox.')
+      toast.success('Check your email for the login link!')
     } catch (error: any) {
-      console.error('Password reset error:', error)
+      console.error('Passwordless login error:', error)
       toast.error('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
@@ -58,10 +60,10 @@ export default function ForgotPasswordPage() {
             </span>
           </Link>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">
-            Reset Password
+            Passwordless Login
           </h1>
           <p className="text-muted-foreground mt-2">
-            Enter your email to receive a password reset link
+            Sign in with a magic link sent to your email
           </p>
         </div>
 
@@ -73,15 +75,27 @@ export default function ForgotPasswordPage() {
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-foreground">Check your email</h2>
               <p className="text-sm text-muted-foreground">
-                We've sent you a password reset link. Please check your email inbox and click the link to reset your password.
+                We've sent you a magic link. Click the link in the email to sign in to your account.
               </p>
             </div>
-            <Link href="/login">
-              <Button variant="outline" className="w-full">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to login
+            <div className="space-y-2">
+              <Button
+                onClick={() => {
+                  setEmail('')
+                  setIsSuccess(false)
+                }}
+                variant="outline"
+                className="w-full border-border"
+              >
+                Send another link
               </Button>
-            </Link>
+              <Link href="/login">
+                <Button variant="outline" className="w-full border-border">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to login
+                </Button>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -117,7 +131,10 @@ export default function ForgotPasswordPage() {
                     Sending...
                   </>
                 ) : (
-                  'Send reset link'
+                  <>
+                    Send magic link
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
                 )}
               </Button>
             </form>

@@ -5,10 +5,10 @@ import { PartnerLogosSection } from "@/components/landing/PartnerLogosSection";
 import { StepsSection } from "@/components/landing/StepsSection";
 import { PerformanceFeaturesSection } from "@/components/landing/PerformanceFeaturesSection";
 import { IntegrationsSection } from "@/components/landing/IntegrationsSection";
-import { PricingSection } from "@/components/landing/PricingSection";
+
 import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { FAQSection } from "@/components/landing/FAQSection";
-import { ContactFormSection } from "@/components/landing/ContactFormSection";
+
 import { Footer } from "@/components/landing/Footer";
 
 export const metadata: Metadata = {
@@ -109,10 +109,10 @@ export default function Home() {
         <StepsSection />
         <PerformanceFeaturesSection />
         <IntegrationsSection />
-        <PricingSection />
+
         <TestimonialsSection />
         <FAQSection />
-        <ContactFormSection />
+
         <Footer />
       </div>
     </>

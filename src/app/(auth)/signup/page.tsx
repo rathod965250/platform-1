@@ -1,53 +1,38 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { SimpleSignupForm } from '@/components/auth/SimpleSignupForm'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SignupForm } from '@/components/auth/SignupForm'
+import { Zap } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Sign Up',
+  title: 'Sign Up | CrackAtom',
   description: 'Create a free account to start practicing for placement aptitude tests with AI-powered adaptive practice and mock tests',
   robots: {
     index: true,
     follow: true,
   },
-  openGraph: {
-    title: 'Sign Up | Aptitude Preparation Platform',
-    description: 'Create a free account to start practicing for placement aptitude tests',
-    type: 'website',
-  },
 }
 
 export default function SignupPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-block mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Aptitude Platform
-            </h1>
+          <Link href="/" className="inline-flex items-center gap-2 mb-6 group">
+            <Zap className="h-7 w-7 text-primary transition-transform group-hover:scale-110" />
+            <span className="text-2xl font-bold text-foreground tracking-tight">
+              CrackAtom
+            </span>
           </Link>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">
             Create an Account
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          </h1>
+          <p className="text-muted-foreground mt-2">
             Start your preparation journey today
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign up for free</CardTitle>
-            <CardDescription>
-              Get started with practice tests and mock exams
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SimpleSignupForm />
-          </CardContent>
-        </Card>
+        <SignupForm />
       </div>
     </div>
   )
 }
-
