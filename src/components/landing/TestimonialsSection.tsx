@@ -139,24 +139,44 @@ async function fetchTestimonialsForSection(supabase: ReturnType<typeof createCli
       .limit(9) // Limit to 9 for the 3 columns
 
     if (error) {
-      console.error('❌ Database query error:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
+      // Safely extract error information
+      const errorInfo: Record<string, any> = {
         fullError: error
-      })
+      }
+      
+      // Only add properties that exist
+      if (error && typeof error === 'object') {
+        if ('message' in error && error.message) {
+          errorInfo.message = error.message
+        }
+        if ('details' in error && error.details) {
+          errorInfo.details = error.details
+        }
+        if ('hint' in error && error.hint) {
+          errorInfo.hint = error.hint
+        }
+        if ('code' in error && error.code) {
+          errorInfo.code = error.code
+        }
+      }
+      
+      console.error('❌ Database query error:', errorInfo)
       
       // Check for specific error types
-      if (error.code === '42P01') {
+      const errorCode = error && typeof error === 'object' && 'code' in error ? error.code : null
+      const errorMessage = error && typeof error === 'object' && 'message' in error ? error.message : null
+      
+      if (errorCode === '42P01') {
         console.error('❌ Table "testimonials" does not exist. Run the migration first.')
-      } else if (error.code === '42501') {
+      } else if (errorCode === '42501') {
         console.error('❌ Permission denied. Check RLS policies for the testimonials table.')
-      } else if (error.message?.includes('JWT')) {
+      } else if (errorMessage && typeof errorMessage === 'string' && errorMessage.includes('JWT')) {
         console.error('❌ Authentication error. Check Supabase anon key.')
       }
       
-      console.error('Response status:', status, statusText)
+      if (status || statusText) {
+        console.error('Response status:', status, statusText)
+      }
       return null
     }
 
@@ -361,12 +381,21 @@ export function TestimonialsSection() {
           
           // Double-check: try to query without limit to see if any testimonials exist
           const { data: allData, error: checkError } = await supabase
-            .from('testimonials')
+          .from('testimonials')
             .select('id, is_active')
             .limit(1)
           
           if (checkError) {
-            console.error('❌ Database query error:', checkError)
+            // Safely log error information
+            const errorInfo = checkError && typeof checkError === 'object'
+              ? {
+                  message: 'message' in checkError ? checkError.message : undefined,
+                  code: 'code' in checkError ? checkError.code : undefined,
+                  details: 'details' in checkError ? checkError.details : undefined,
+                  fullError: checkError
+                }
+              : checkError
+            console.error('❌ Database query error:', errorInfo)
             console.log('📦 Using fallback testimonials due to database error')
             setTestimonials(fallbackTestimonials)
             setUseFallback(true)
@@ -378,7 +407,7 @@ export function TestimonialsSection() {
           } else {
             console.warn('⚠️ Testimonials exist but none are active (is_active = true)')
             console.log('📦 Using fallback testimonials - no active testimonials')
-            setTestimonials(fallbackTestimonials)
+          setTestimonials(fallbackTestimonials)
             setUseFallback(true)
           }
         }

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { StudentSidebar } from '@/components/dashboard/StudentSidebar'
+import { SidebarProvider } from '@/contexts/SidebarContext'
+import { StudentLayoutContent } from '@/components/dashboard/StudentLayoutContent'
 
 export default async function StudentLayout({
   children,
@@ -30,11 +31,8 @@ export default async function StudentLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      <StudentSidebar />
-      <main className="flex-1 lg:ml-64">
-        {children}
-      </main>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {children}
     </div>
   )
 }

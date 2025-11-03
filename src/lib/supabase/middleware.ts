@@ -73,6 +73,81 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Redirect completed users away from onboarding page
+  // Redirect incomplete users away from protected routes (except onboarding)
+  if (user) {
+    const protectedRoutes = ['/dashboard', '/practice', '/test', '/profile']
+    const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+    const isOnboardingRoute = request.nextUrl.pathname === '/onboarding'
+
+    if (isProtectedRoute || isOnboardingRoute) {
+      try {
+        // Optimized: Fetch both profile and adaptive_state in parallel
+        const [profileResult, adaptiveStateResult] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('college, graduation_year, target_companies, phone, course_id, course_name')
+            .eq('id', user.id)
+            .single(),
+          supabase
+            .from('adaptive_state')
+            .select('id')
+            .eq('user_id', user.id)
+            .limit(1),
+        ])
+
+        const profile = profileResult.data
+        const adaptiveStates = adaptiveStateResult.data
+
+        // Check if all required fields are present
+        const hasCollege = !!profile?.college
+        const hasGraduationYear = !!profile?.graduation_year
+        const hasCourse = !!(profile?.course_id || profile?.course_name)
+        const hasPhone = !!profile?.phone
+        const hasTargetCompanies = !!(
+          profile?.target_companies && 
+          Array.isArray(profile.target_companies) && 
+          profile.target_companies.length > 0
+        )
+        const hasAdaptiveState = !!(adaptiveStates && adaptiveStates.length > 0)
+
+        const isComplete = hasCollege && 
+                           hasGraduationYear && 
+                           hasCourse && 
+                           hasPhone && 
+                           hasTargetCompanies && 
+                           hasAdaptiveState
+
+        // If onboarding is incomplete and accessing protected route, redirect to onboarding
+        if (!isComplete && isProtectedRoute) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/onboarding'
+          return NextResponse.redirect(url)
+        }
+
+        // If onboarding is complete and accessing onboarding page, redirect to dashboard
+        if (isComplete && isOnboardingRoute) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/dashboard'
+          return NextResponse.redirect(url)
+        }
+      } catch (error) {
+        // If check fails, log error but don't redirect to avoid loops
+        // Only redirect if it's a protected route and the error suggests missing profile
+        console.error('Error checking onboarding status in middleware:', error)
+        // For protected routes, allow access on error (fail open) to avoid redirect loops
+        // The page-level checks will handle incomplete onboarding
+        if (isProtectedRoute && error && typeof error === 'object' && 'code' in error && error.code === 'PGRST116') {
+          // Profile not found - definitely incomplete
+          const url = request.nextUrl.clone()
+          url.pathname = '/onboarding'
+          return NextResponse.redirect(url)
+        }
+        // Otherwise, let the request continue - page-level checks will handle it
+      }
+    }
+  }
+
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
   // creating a new response object with NextResponse.next() make sure to:
   // 1. Pass the request in it, like so:

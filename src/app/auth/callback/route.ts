@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('college, graduation_year, target_companies')
+        .select('college, graduation_year, target_companies, phone, course_id, course_name')
         .eq('id', user.id)
         .single()
 
@@ -75,13 +75,27 @@ export async function GET(request: NextRequest) {
         .eq('user_id', user.id)
         .limit(1)
 
-      // If profile is incomplete or no adaptive_state exists, redirect to onboarding
-      const needsOnboarding = !profile?.college || !profile?.graduation_year || 
-                              !profile?.target_companies || 
-                              profile.target_companies.length === 0 ||
-                              !adaptiveStates || adaptiveStates.length === 0
+      // Comprehensive onboarding completion check
+      const hasCollege = !!profile?.college
+      const hasGraduationYear = !!profile?.graduation_year
+      const hasCourse = !!(profile?.course_id || profile?.course_name)
+      const hasPhone = !!profile?.phone
+      const hasTargetCompanies = !!(
+        profile?.target_companies && 
+        Array.isArray(profile.target_companies) && 
+        profile.target_companies.length > 0
+      )
+      const hasAdaptiveState = !!(adaptiveStates && adaptiveStates.length > 0)
 
-      if (needsOnboarding) {
+      const isComplete = hasCollege && 
+                         hasGraduationYear && 
+                         hasCourse && 
+                         hasPhone && 
+                         hasTargetCompanies && 
+                         hasAdaptiveState
+
+      // If onboarding is incomplete, redirect to onboarding
+      if (!isComplete) {
         redirectTo.pathname = '/onboarding'
         redirectTo.searchParams.delete('code')
         return NextResponse.redirect(redirectTo)

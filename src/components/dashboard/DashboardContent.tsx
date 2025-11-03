@@ -18,6 +18,23 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { DashboardShell } from './DashboardShell'
+import { MotivationalRankCards } from './MotivationalRankCards'
+import { ProgressTracking } from './ProgressTracking'
+import { AchievementBadges } from './AchievementBadges'
+import { ImprovementTrends } from './ImprovementTrends'
+import { PeerComparison } from './PeerComparison'
+
+interface DashboardPreferences {
+  showRankCards?: boolean
+  showProgressTracking?: boolean
+  showAchievementBadges?: boolean
+  showImprovementTrends?: boolean
+  showPeerComparison?: boolean
+  showRecommendations?: boolean
+  showPerformanceTrend?: boolean
+  showWeakAreas?: boolean
+}
 
 interface DashboardContentProps {
   profile: any
@@ -44,6 +61,20 @@ interface DashboardContentProps {
   weakAreas: string[]
   masteryLevels?: Record<string, number>
   adaptiveStates?: any[]
+  userGlobalRank?: number
+  userWeeklyRank?: number
+  userMonthlyRank?: number
+  totalUsers?: number
+  weekOverWeekImprovement?: number
+  bestScore?: number
+  longestStreak?: number
+  progressToNextMilestone?: {
+    current: number
+    target: number
+    percentage: number
+    label: string
+  }
+  dashboardPreferences?: DashboardPreferences
 }
 
 export function DashboardContent({
@@ -54,8 +85,65 @@ export function DashboardContent({
   weakAreas,
   masteryLevels = {},
   adaptiveStates = [],
+  userGlobalRank = 0,
+  userWeeklyRank = 0,
+  userMonthlyRank = 0,
+  totalUsers = 0,
+  weekOverWeekImprovement = 0,
+  bestScore = 0,
+  longestStreak = 0,
+  progressToNextMilestone = { current: 0, target: 100, percentage: 0, label: '' },
+  dashboardPreferences = {
+    showRankCards: true,
+    showProgressTracking: true,
+    showAchievementBadges: true,
+    showImprovementTrends: true,
+    showPeerComparison: true,
+    showRecommendations: true,
+    showPerformanceTrend: true,
+    showWeakAreas: true,
+  },
 }: DashboardContentProps) {
   const router = useRouter()
+
+  // Get personalized greeting and name
+  const getPersonalizedGreeting = () => {
+    const hour = new Date().getHours()
+    let timeGreeting = ''
+    
+    if (hour < 12) {
+      timeGreeting = 'Good morning'
+    } else if (hour < 17) {
+      timeGreeting = 'Good afternoon'
+    } else {
+      timeGreeting = 'Good evening'
+    }
+
+    // Get the student's name with fallbacks
+    let studentName = ''
+    if (profile?.full_name) {
+      // Use first and second name (first name + last name) for personalized greeting
+      const nameParts = profile.full_name.trim().split(/\s+/)
+      if (nameParts.length >= 2) {
+        // Combine first and second name (e.g., "John Sara")
+        studentName = `${nameParts[0]} ${nameParts[1]}`
+      } else if (nameParts.length === 1) {
+        // If only one name exists, use it
+        studentName = nameParts[0]
+      } else {
+        studentName = profile.full_name
+      }
+    } else if (profile?.email) {
+      // Fallback to email username if name is not available
+      studentName = profile.email.split('@')[0]
+    } else {
+      studentName = 'Student'
+    }
+
+    return { timeGreeting, studentName }
+  }
+
+  const { timeGreeting, studentName } = getPersonalizedGreeting()
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -131,84 +219,120 @@ export function DashboardContent({
   const recommendations = getRecommendations()
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 py-8">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <DashboardShell
+      profile={profile}
+      stats={stats}
+      recentActivity={recentActivity}
+      performanceTrend={performanceTrend}
+      weakAreas={weakAreas}
+      masteryLevels={masteryLevels}
+      adaptiveStates={adaptiveStates}
+    >
+      <div className="space-y-6">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, {profile?.full_name || 'Student'}! 👋
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            {timeGreeting}, {studentName}! 👋
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground">
             Here's your learning progress and performance overview
           </p>
         </div>
 
         {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">Tests Taken</div>
-                <Trophy className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div className="text-sm font-medium text-muted-foreground">Tests Taken</div>
+                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
+                  <Trophy className="h-5 w-5" />
+                </div>
               </div>
-              <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
+              <div className="text-3xl font-bold text-foreground">
                 {stats.totalTests}
               </div>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {stats.totalTests > 0 ? 'Keep going!' : 'Take your first test'}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-green-700 dark:text-green-300">Average Score</div>
-                <Target className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <div className="text-sm font-medium text-muted-foreground">Average Score</div>
+                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
+                  <Target className="h-5 w-5" />
+                </div>
               </div>
-              <div className="text-3xl font-bold text-green-900 dark:text-green-100">
+              <div className="text-3xl font-bold text-foreground">
                 {stats.avgScore.toFixed(1)}%
               </div>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {stats.avgScore >= 70 ? 'Excellent!' : stats.avgScore >= 50 ? 'Good progress' : 'Keep practicing'}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Questions Done</div>
-                <BookOpen className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <div className="text-sm font-medium text-muted-foreground">Questions Done</div>
+                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
+                  <BookOpen className="h-5 w-5" />
+                </div>
               </div>
-              <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">
+              <div className="text-3xl font-bold text-foreground">
                 {stats.totalQuestionsAnswered}
               </div>
-              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {stats.totalQuestionsAnswered >= 100 ? 'Great practice!' : 'Practice more to improve'}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-orange-700 dark:text-orange-300">Current Streak</div>
-                <Flame className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <div className="text-sm font-medium text-muted-foreground">Current Streak</div>
+                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
+                  <Flame className="h-5 w-5" />
+                </div>
               </div>
-              <div className="text-3xl font-bold text-orange-900 dark:text-orange-100">
+              <div className="text-3xl font-bold text-foreground">
                 {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
               </div>
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {stats.currentStreak > 0 ? 'Keep the streak alive!' : 'Start your streak today'}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Progress Tracking */}
+        {dashboardPreferences?.showProgressTracking && (
+          <ProgressTracking
+            totalQuestionsAnswered={stats.totalQuestionsAnswered}
+            totalTests={stats.totalTests}
+            currentStreak={stats.currentStreak}
+            progressToNextMilestone={progressToNextMilestone}
+          />
+        )}
+
+        {/* Achievement Badges */}
+        {dashboardPreferences?.showAchievementBadges && (
+          <AchievementBadges
+            totalQuestionsAnswered={stats.totalQuestionsAnswered}
+            totalTests={stats.totalTests}
+            avgScore={stats.avgScore}
+            currentStreak={stats.currentStreak}
+          />
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Activity */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 bg-card border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
@@ -222,35 +346,29 @@ export function DashboardContent({
                   {recentActivity.map((activity) => (
                     <div
                       key={activity.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            activity.type === 'test'
-                              ? 'bg-blue-100 dark:bg-blue-900'
-                              : 'bg-green-100 dark:bg-green-900'
-                          }`}
-                        >
+                        <div className="bg-primary/10 text-primary p-2 rounded-lg">
                           {activity.type === 'test' ? (
-                            <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            <ClipboardList className="h-5 w-5" />
                           ) : (
-                            <Brain className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            <Brain className="h-5 w-5" />
                           )}
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">{activity.title}</h4>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                          <h4 className="font-medium text-foreground">{activity.title}</h4>
+                          <p className="text-sm text-muted-foreground">
                             {formatDate(activity.date)}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <div className="font-semibold text-gray-900 dark:text-white">
+                          <div className="font-semibold text-foreground">
                             {activity.score}/{activity.totalMarks}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                          <div className="text-sm text-muted-foreground">
                             {((activity.score / activity.totalMarks) * 100).toFixed(0)}%
                           </div>
                         </div>
@@ -269,10 +387,10 @@ export function DashboardContent({
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <div className="mx-auto w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                    <ClipboardList className="h-12 w-12 text-gray-400" />
+                  <div className="mx-auto w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <ClipboardList className="h-12 w-12 text-muted-foreground" />
                   </div>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">No activity yet</p>
+                  <p className="text-muted-foreground mb-4">No activity yet</p>
                   <Button onClick={() => router.push('/test')}>Take Your First Test</Button>
                 </div>
               )}
@@ -280,44 +398,68 @@ export function DashboardContent({
           </Card>
 
           {/* Recommended Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Recommended
-              </CardTitle>
-              <CardDescription>Personalized suggestions for you</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recommendations.map((rec, index) => (
-                <div
-                  key={index}
-                  className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    <rec.icon className={`h-5 w-5 ${rec.color} flex-shrink-0`} />
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-1">{rec.title}</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{rec.description}</p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => router.push(rec.href)}
+          {dashboardPreferences?.showRecommendations && (
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Recommended
+                </CardTitle>
+                <CardDescription>Personalized suggestions for you</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {recommendations.map((rec, index) => (
+                  <div
+                    key={index}
+                    className="p-4 rounded-lg border border-border hover:border-primary/50 transition-colors"
                   >
-                    {rec.action}
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="bg-primary/10 text-primary p-1.5 rounded-md">
+                        <rec.icon className="h-4 w-4 flex-shrink-0" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-foreground mb-1">{rec.title}</h4>
+                        <p className="text-sm text-muted-foreground">{rec.description}</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => router.push(rec.href)}
+                    >
+                      {rec.action}
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Improvement Trends */}
+          {dashboardPreferences?.showImprovementTrends && (
+            <ImprovementTrends
+              weekOverWeekImprovement={weekOverWeekImprovement}
+              bestScore={bestScore}
+              longestStreak={longestStreak}
+              avgScore={stats.avgScore}
+              currentStreak={stats.currentStreak}
+            />
+          )}
+
+          {/* Peer Comparison */}
+          {dashboardPreferences?.showPeerComparison && (
+            <PeerComparison
+              userGlobalRank={userGlobalRank}
+              totalUsers={totalUsers}
+              avgScore={stats.avgScore}
+            />
+          )}
         </div>
 
         {/* Performance Trend */}
-        {performanceTrend.length > 0 && (
-          <Card className="mb-8">
+        {dashboardPreferences?.showPerformanceTrend && performanceTrend.length > 0 && (
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
@@ -328,10 +470,23 @@ export function DashboardContent({
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={performanceTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis domain={[0, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted-foreground))"
+                    style={{ fontSize: '12px' }}
+                  />
+                  <YAxis 
+                    domain={[0, 100]} 
+                    stroke="hsl(var(--muted-foreground))"
+                    style={{ fontSize: '12px' }}
+                  />
                   <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 'var(--radius)',
+                    }}
                     formatter={(value: any) => [`${value}%`, 'Score']}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
@@ -340,10 +495,10 @@ export function DashboardContent({
                     type="monotone"
                     dataKey="score"
                     name="Score %"
-                    stroke="#3b82f6"
+                    stroke="hsl(var(--primary))"
                     strokeWidth={2}
-                    dot={{ fill: '#3b82f6', r: 4 }}
-                    activeDot={{ r: 6 }}
+                    dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                    activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -352,28 +507,28 @@ export function DashboardContent({
         )}
 
         {/* Weak Areas Alert */}
-        {weakAreas.length > 0 && (
-          <Card className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950">
+        {dashboardPreferences?.showWeakAreas && weakAreas.length > 0 && (
+          <Card className="border-destructive/20 bg-destructive/5">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <AlertCircle className="h-6 w-6 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-1" />
+                <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-1" />
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-100 mb-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
                     Areas Needing Attention
                   </h3>
-                  <p className="text-orange-800 dark:text-orange-200 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     You have lower accuracy ({' <'}60%) in the following topics:
                   </p>
                   <div className="flex flex-wrap gap-2 mb-4">
                     {weakAreas.map((area) => (
-                      <Badge key={area} variant="secondary" className="bg-orange-200 dark:bg-orange-900">
+                      <Badge key={area} variant="secondary" className="bg-destructive/10 text-destructive-foreground">
                         {area}
                       </Badge>
                     ))}
                   </div>
                   <Button
                     onClick={() => router.push('/practice')}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                   >
                     Practice These Topics
                   </Button>
@@ -384,31 +539,31 @@ export function DashboardContent({
         )}
 
         {/* Quick Access Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white border-0 cursor-pointer hover:shadow-lg transition-shadow"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="bg-primary text-primary-foreground border-0 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => router.push('/practice')}>
             <CardContent className="p-8 text-center">
               <Brain className="h-12 w-12 mx-auto mb-4" />
               <h3 className="text-2xl font-bold mb-2">Start Practice</h3>
-              <p className="text-blue-100">
+              <p className="text-primary-foreground/80">
                 Choose a topic and practice at your own pace
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-600 to-purple-700 text-white border-0 cursor-pointer hover:shadow-lg transition-shadow"
+          <Card className="bg-accent text-accent-foreground border-0 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => router.push('/test')}>
             <CardContent className="p-8 text-center">
               <ClipboardList className="h-12 w-12 mx-auto mb-4" />
               <h3 className="text-2xl font-bold mb-2">Take a Test</h3>
-              <p className="text-purple-100">
+              <p className="text-accent-foreground/80">
                 Experience real exam conditions with timed tests
               </p>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
+    </DashboardShell>
   )
 }
 

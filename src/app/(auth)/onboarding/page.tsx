@@ -14,10 +14,14 @@ export default function OnboardingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
+    let mounted = true
+
     async function checkAuth() {
       try {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!mounted) return
         
         if (!user) {
           toast.error('Please sign in to continue')
@@ -25,40 +29,73 @@ export default function OnboardingPage() {
           return
         }
         
-        // Check if user already completed onboarding
+        // Check if user already completed onboarding with comprehensive check
         const { data: profile } = await supabase
           .from('profiles')
-          .select('college, graduation_year, target_companies, phone')
+          .select('college, graduation_year, target_companies, phone, course_id, course_name')
           .eq('id', user.id)
           .single()
 
-        // Check if profile is already filled (has college, graduation_year, etc.)
-        // and if adaptive_state exists
+        if (!mounted) return
+
+        // Check if adaptive_state exists
         const { data: adaptiveStates } = await supabase
           .from('adaptive_state')
           .select('id')
           .eq('user_id', user.id)
           .limit(1)
 
-        // If profile has key info and adaptive_state exists, onboarding is complete
-        if (profile?.college && profile?.graduation_year && adaptiveStates && adaptiveStates.length > 0) {
+        if (!mounted) return
+
+        // Comprehensive onboarding completion check
+        const hasCollege = !!profile?.college
+        const hasGraduationYear = !!profile?.graduation_year
+        const hasCourse = !!(profile?.course_id || profile?.course_name)
+        const hasPhone = !!profile?.phone
+        const hasTargetCompanies = !!(
+          profile?.target_companies && 
+          Array.isArray(profile.target_companies) && 
+          profile.target_companies.length > 0
+        )
+        const hasAdaptiveState = !!(adaptiveStates && adaptiveStates.length > 0)
+
+        const isComplete = hasCollege && 
+                           hasGraduationYear && 
+                           hasCourse && 
+                           hasPhone && 
+                           hasTargetCompanies && 
+                           hasAdaptiveState
+
+        // If onboarding is complete, redirect to dashboard
+        if (isComplete) {
           toast.info('You have already completed onboarding')
           router.push('/dashboard')
           return
         }
 
-        setIsAuthenticated(true)
+        if (mounted) {
+          setIsAuthenticated(true)
+        }
       } catch (error: any) {
         console.error('Onboarding check error:', error)
-        toast.error('An error occurred. Please try again.')
-        router.push('/login')
+        if (mounted) {
+          toast.error('An error occurred. Please try again.')
+          router.push('/login')
+        }
       } finally {
-        setLoading(false)
+        if (mounted) {
+          setLoading(false)
+        }
       }
     }
 
     checkAuth()
-  }, [router])
+
+    return () => {
+      mounted = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps - only run once on mount
 
   if (loading) {
     return (

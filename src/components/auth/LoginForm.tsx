@@ -59,32 +59,44 @@ export function LoginForm() {
       // Fetch user profile from database
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, role')
+        .select('full_name, role, college, graduation_year, target_companies, phone, course_id, course_name')
         .eq('id', authData.user.id)
         .single()
 
       toast.success(`Welcome back${profile?.full_name ? ', ' + profile.full_name : ''}!`)
       
-      // Check if user needs onboarding
-      const needsOnboarding = !profile?.college || !profile?.graduation_year || 
-                              !profile?.target_companies || 
-                              profile.target_companies.length === 0
+      // Comprehensive onboarding completion check
+      const hasCollege = !!profile?.college
+      const hasGraduationYear = !!profile?.graduation_year
+      const hasCourse = !!(profile?.course_id || profile?.course_name)
+      const hasPhone = !!profile?.phone
+      const hasTargetCompanies = !!(
+        profile?.target_companies && 
+        Array.isArray(profile.target_companies) && 
+        profile.target_companies.length > 0
+      )
 
-      if (needsOnboarding) {
-        // Check for adaptive_state
-        const { data: adaptiveStates } = await supabase
-          .from('adaptive_state')
-          .select('id')
-          .eq('user_id', authData.user.id)
-          .limit(1)
+      // Check for adaptive_state
+      const { data: adaptiveStates } = await supabase
+        .from('adaptive_state')
+        .select('id')
+        .eq('user_id', authData.user.id)
+        .limit(1)
 
-        if (!adaptiveStates || adaptiveStates.length === 0) {
-          router.push('/onboarding')
-        } else {
-          router.push('/dashboard')
-        }
-      } else {
+      const hasAdaptiveState = !!(adaptiveStates && adaptiveStates.length > 0)
+
+      const isComplete = hasCollege && 
+                         hasGraduationYear && 
+                         hasCourse && 
+                         hasPhone && 
+                         hasTargetCompanies && 
+                         hasAdaptiveState
+
+      // Redirect based on onboarding status
+      if (isComplete) {
         router.push('/dashboard')
+      } else {
+        router.push('/onboarding')
       }
       
       router.refresh()
@@ -130,7 +142,7 @@ export function LoginForm() {
             Email
           </Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none z-10" />
             <Input
               id="email"
               type="email"
@@ -140,7 +152,7 @@ export function LoginForm() {
               disabled={isLoading || isGoogleLoading}
               required
               autoComplete="email"
-              className="pl-9 bg-background"
+              className="pl-9 bg-card border-border"
             />
           </div>
         </div>
@@ -158,7 +170,7 @@ export function LoginForm() {
             </Link>
           </div>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none z-10" />
             <Input
               id="password"
               type="password"
@@ -168,7 +180,7 @@ export function LoginForm() {
               disabled={isLoading || isGoogleLoading}
               required
               autoComplete="current-password"
-              className="pl-9 bg-background"
+              className="pl-9 bg-card border-border"
             />
           </div>
         </div>
