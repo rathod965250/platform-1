@@ -116,25 +116,34 @@ export function DashboardPreferences({
           let errorMessage = 'Failed to save preferences. Please try again.'
           
           // Try to get error message from various properties
-          if (errorAny?.message && typeof errorAny.message === 'string' && errorAny.message.length > 0) {
-            errorMessage = errorAny.message
-          } else if (errorAny?.details && typeof errorAny.details === 'string' && errorAny.details.length > 0) {
-            errorMessage = errorAny.details
-          } else if (errorAny?.hint && typeof errorAny.hint === 'string' && errorAny.hint.length > 0) {
-            errorMessage = errorAny.hint
+          if (errorAny?.message && typeof errorAny.message === 'string' && errorAny.message.trim().length > 0) {
+            errorMessage = errorAny.message.trim()
+          } else if (errorAny?.details && typeof errorAny.details === 'string' && errorAny.details.trim().length > 0) {
+            errorMessage = errorAny.details.trim()
+          } else if (errorAny?.hint && typeof errorAny.hint === 'string' && errorAny.hint.trim().length > 0) {
+            errorMessage = errorAny.hint.trim()
           } else if (errorAny?.code) {
             // Handle specific error codes
             if (errorAny.code === 'PGRST116') {
               errorMessage = 'Profile not found. Please refresh the page.'
             } else if (errorAny.code === '42501') {
-              errorMessage = 'Permission denied. The RLS policy may be missing. Please run the SQL fix in APPLY_RLS_FIX.sql'
+              errorMessage = 'Permission denied. Please run the SQL fix in APPLY_RLS_FIX_FOR_DASHBOARD_PREFERENCES.sql to fix the RLS policy.'
             } else if (errorAny.code === 'PGRST301') {
               errorMessage = 'Multiple rows returned. Please contact support.'
             } else {
-              errorMessage = `Error code: ${errorAny.code}. Please check console for details.`
+              errorMessage = `Database error (${errorAny.code}). Please check console for details or try running the SQL fix.`
             }
-          } else if (String(error) !== '[object Object]') {
-            errorMessage = String(error)
+          } else if (errorAny?.status || errorAny?.statusText) {
+            // Handle HTTP errors
+            errorMessage = `Server error (${errorAny.status || 'unknown'}): ${errorAny.statusText || 'Unknown error'}. Please try again.`
+          } else {
+            // If error is empty object or unhelpful, provide a more actionable message
+            const errorString = String(error)
+            if (errorString === '[object Object]' || errorString === '{}') {
+              errorMessage = 'An unknown error occurred. Please check your database connection and RLS policies. Run the SQL fix in APPLY_RLS_FIX_FOR_DASHBOARD_PREFERENCES.sql if the issue persists.'
+            } else if (errorString.trim().length > 0 && errorString !== '[object Object]') {
+              errorMessage = errorString
+            }
           }
           
           toast.error(errorMessage)

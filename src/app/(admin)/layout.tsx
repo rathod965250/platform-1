@@ -17,13 +17,14 @@ export default async function AdminLayout({
   }
   
   // Check if user is admin
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single()
   
-  if (!profile || profile.role !== 'admin') {
+  // If profile doesn't exist or user is not admin, redirect
+  if (profileError || !profile || profile.role !== 'admin') {
     redirect('/dashboard')
   }
 

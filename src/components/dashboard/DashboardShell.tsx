@@ -19,6 +19,8 @@ import {
   Building2,
   Upload,
   ChevronRight,
+  Clock,
+  BookOpen,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -109,7 +111,7 @@ function DashboardShellContent({
 
   // Auto-expand test menu when on test page
   React.useEffect(() => {
-    if (pathname === '/test' || pathname === '/test/mock' || pathname === '/test/company-specific' || pathname === '/test/custom' || pathname?.startsWith('/test/')) {
+    if (pathname === '/test' || pathname === '/test/mock' || pathname === '/test/company-specific' || pathname === '/test/custom' || (pathname?.startsWith('/test/') && !pathname?.startsWith('/test/active/') && !pathname?.startsWith('/test/results/'))) {
       setIsTestMenuOpen(true)
     }
   }, [pathname])
@@ -139,6 +141,8 @@ function DashboardShellContent({
       } else if (pathname?.includes('/summary')) {
         items.push({ label: 'Summary', href: null })
       }
+    } else if (pathname === '/assignments' || pathname?.startsWith('/assignments/')) {
+      items.push({ label: 'Assignments', href: '/assignments' })
     } else if (pathname === '/test' || pathname?.startsWith('/test/')) {
       items.push({ label: 'Test', href: '/test' })
       if (pathname === '/test/mock' || pathname?.startsWith('/test/mock/')) {
@@ -156,6 +160,8 @@ function DashboardShellContent({
       items.push({ label: 'Results', href: '/results' })
     } else if (pathname === '/leaderboard' || pathname?.startsWith('/leaderboard/')) {
       items.push({ label: 'Leaderboard', href: '/leaderboard' })
+    } else if (pathname === '/recent-activity' || pathname?.startsWith('/recent-activity/')) {
+      items.push({ label: 'Recent Activity', href: '/recent-activity' })
     } else if (pathname === '/profile' || pathname?.startsWith('/profile/')) {
       items.push({ label: 'Profile', href: '/profile' })
     } else if (pathname === '/settings' || pathname?.startsWith('/settings/')) {
@@ -237,6 +243,14 @@ function DashboardShellContent({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname === '/assignments' || pathname?.startsWith('/assignments/')} tooltip="Assignments">
+                      <Link href="/assignments">
+                        <BookOpen className="size-5" />
+                        <span>Assignments</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
                     <SidebarMenuButton 
                       onClick={() => setIsTestMenuOpen(!isTestMenuOpen)}
                       isActive={pathname === '/test' || pathname?.startsWith('/test/')}
@@ -307,6 +321,14 @@ function DashboardShellContent({
                       <Link href="/leaderboard">
                         <Trophy className="size-5" />
                         <span>Leaderboard</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname === '/recent-activity' || pathname?.startsWith('/recent-activity/')} tooltip="Recent Activity">
+                      <Link href="/recent-activity">
+                        <Clock className="size-5" />
+                        <span>Recent Activity</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

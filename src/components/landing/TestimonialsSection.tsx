@@ -424,59 +424,65 @@ export function TestimonialsSection() {
     // Initial load
     loadTestimonials()
 
-    // Set up realtime subscription for live updates
+    // Set up realtime subscription for live updates (optional - gracefully handles errors)
     // Listen to all changes on testimonials table (no filter - we filter when refetching)
-    channel = supabase
-      .channel('testimonials-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'testimonials',
-        },
-        async (payload) => {
-          console.log('🔄 Realtime event received:', payload.eventType, payload.new || payload.old)
-          
-          // Small delay to ensure database is updated
-          await new Promise(resolve => setTimeout(resolve, 100))
-          
-          // Refetch testimonials when any change occurs
-          // This ensures we get the latest data with proper filtering and ordering
-          try {
-            const data = await fetchTestimonialsForSection(supabase)
-            if (data && data.length > 0) {
-              console.log('✅ Testimonials updated in realtime:', data.length, 'items')
-              setTestimonials(data)
-              setUseFallback(false) // Switch to database data when available
-            } else {
-              // Keep current state if no active testimonials (don't switch to fallback if we're already using it)
-              console.log('⚠️ No active testimonials after realtime update')
-              // Only use fallback if we don't have any testimonials at all
-              if (testimonials.length === 0) {
-                console.log('📦 Switching to fallback testimonials')
-                setTestimonials(fallbackTestimonials)
-                setUseFallback(true)
+    try {
+      channel = supabase
+        .channel('testimonials-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // Listen to INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'testimonials',
+          },
+          async (payload) => {
+            console.log('🔄 Realtime event received:', payload.eventType, payload.new || payload.old)
+            
+            // Small delay to ensure database is updated
+            await new Promise(resolve => setTimeout(resolve, 100))
+            
+            // Refetch testimonials when any change occurs
+            // This ensures we get the latest data with proper filtering and ordering
+            try {
+              const data = await fetchTestimonialsForSection(supabase)
+              if (data && data.length > 0) {
+                console.log('✅ Testimonials updated in realtime:', data.length, 'items')
+                setTestimonials(data)
+                setUseFallback(false) // Switch to database data when available
+              } else {
+                // Keep current state if no active testimonials (don't switch to fallback if we're already using it)
+                console.log('⚠️ No active testimonials after realtime update')
+                // Only use fallback if we don't have any testimonials at all
+                if (testimonials.length === 0) {
+                  console.log('📦 Switching to fallback testimonials')
+                  setTestimonials(fallbackTestimonials)
+                  setUseFallback(true)
+                }
               }
+            } catch (error) {
+              console.error('❌ Error refreshing testimonials:', error)
+              // On error, keep current state, don't overwrite with fallback
             }
-          } catch (error) {
-            console.error('❌ Error refreshing testimonials:', error)
-            // On error, keep current state, don't overwrite with fallback
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Realtime subscription status:', status)
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Realtime subscription active for testimonials table')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Realtime channel error - verify realtime is enabled in Supabase Dashboard → Database → Replication')
-        } else if (status === 'TIMED_OUT') {
-          console.warn('⚠️ Realtime subscription timed out - check network connection')
-        } else if (status === 'CLOSED') {
-          console.log('ℹ️ Realtime subscription closed')
-        }
-      })
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Realtime subscription active for testimonials table')
+          } else if (status === 'CHANNEL_ERROR') {
+            // Realtime is not enabled - this is optional, so just log a warning
+            console.warn('⚠️ Realtime not available - testimonials will still work, just without live updates. To enable: Supabase Dashboard → Database → Replication → Enable for testimonials table')
+          } else if (status === 'TIMED_OUT') {
+            console.warn('⚠️ Realtime subscription timed out - testimonials will still work normally')
+          } else if (status === 'CLOSED') {
+            console.log('ℹ️ Realtime subscription closed')
+          }
+        })
+    } catch (error) {
+      // Realtime subscription failed - component will still work without live updates
+      console.warn('⚠️ Could not set up realtime subscription - testimonials will still work normally:', error)
+      channel = null
+    }
 
     // Cleanup subscription on unmount
     return () => {

@@ -1,17 +1,10 @@
 import { redirect } from 'next/navigation'
-import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardContent } from '@/components/dashboard/DashboardContent'
-import { PageSkeleton } from '@/components/shared/PageSkeleton'
-import type { TestAttemptWithRelations, AdaptiveStateWithRelations } from '@/types/database.types'
 
 export const metadata = {
   title: 'Dashboard | Aptitude Preparation Platform',
   description: 'Your personal dashboard for aptitude test preparation',
-}
-
-function DashboardLoading() {
-  return <PageSkeleton />
 }
 
 export default async function DashboardPage() {
@@ -358,30 +351,28 @@ export default async function DashboardPage() {
   }
 
   return (
-    <Suspense fallback={<DashboardLoading />}>
-      <DashboardContent
-        profile={profile}
-        stats={{
-          totalTests,
-          avgScore,
-          totalQuestionsAnswered,
-          currentStreak,
-        }}
-        recentActivity={recentActivity}
-        performanceTrend={performanceTrend}
-        weakAreas={weakAreas}
-        masteryLevels={masteryLevels}
-        adaptiveStates={adaptiveStates || []}
-        userGlobalRank={userGlobalRankFinal}
-        userWeeklyRank={userWeeklyRankFinal}
-        userMonthlyRank={userMonthlyRankFinal}
-        totalUsers={totalUsers}
-        weekOverWeekImprovement={weekOverWeekImprovement}
-        bestScore={bestScore}
-        longestStreak={longestStreak}
-        progressToNextMilestone={progressToNextMilestone}
-        dashboardPreferences={dashboardPreferences}
-      />
-    </Suspense>
+    <DashboardContent
+      profile={profile}
+      stats={{
+        totalTests,
+        avgScore,
+        totalQuestionsAnswered,
+        currentStreak,
+      }}
+      recentActivity={recentActivity}
+      performanceTrend={performanceTrend}
+      weakAreas={weakAreas}
+      masteryLevels={masteryLevels}
+      adaptiveStates={adaptiveStates || []}
+      userGlobalRank={userGlobalRankFinal}
+      userWeeklyRank={userWeeklyRankFinal}
+      userMonthlyRank={userMonthlyRankFinal}
+      totalUsers={totalUsers}
+      weekOverWeekImprovement={weekOverWeekImprovement}
+      bestScore={bestScore}
+      longestStreak={longestStreak}
+      progressToNextMilestone={progressToNextMilestone}
+      dashboardPreferences={dashboardPreferences}
+    />
   )
 }

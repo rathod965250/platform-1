@@ -228,28 +228,28 @@ export function DashboardContent({
       masteryLevels={masteryLevels}
       adaptiveStates={adaptiveStates}
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
         {/* Welcome Section */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 break-words">
             {timeGreeting}, {studentName}! 👋
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Here's your learning progress and performance overview
           </p>
         </div>
 
         {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-muted-foreground">Tests Taken</div>
-                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
-                  <Trophy className="h-5 w-5" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Tests Taken</div>
+                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
+                  <Trophy className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-foreground">
+              <div className="text-2xl sm:text-3xl font-bold text-foreground">
                 {stats.totalTests}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -259,14 +259,14 @@ export function DashboardContent({
           </Card>
 
           <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-muted-foreground">Average Score</div>
-                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
-                  <Target className="h-5 w-5" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Average Score</div>
+                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
+                  <Target className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-foreground">
+              <div className="text-2xl sm:text-3xl font-bold text-foreground">
                 {stats.avgScore.toFixed(1)}%
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -276,14 +276,14 @@ export function DashboardContent({
           </Card>
 
           <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-muted-foreground">Questions Done</div>
-                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
-                  <BookOpen className="h-5 w-5" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Questions Done</div>
+                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
+                  <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-foreground">
+              <div className="text-2xl sm:text-3xl font-bold text-foreground">
                 {stats.totalQuestionsAnswered}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -293,14 +293,14 @@ export function DashboardContent({
           </Card>
 
           <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-muted-foreground">Current Streak</div>
-                <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
-                  <Flame className="h-5 w-5" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Current Streak</div>
+                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
+                  <Flame className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </div>
-              <div className="text-3xl font-bold text-foreground">
+              <div className="text-2xl sm:text-3xl font-bold text-foreground break-words">
                 {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -309,6 +309,16 @@ export function DashboardContent({
             </CardContent>
           </Card>
         </div>
+
+        {/* Rank Cards */}
+        {dashboardPreferences?.showRankCards && (
+          <MotivationalRankCards
+            userGlobalRank={userGlobalRank}
+            userWeeklyRank={userWeeklyRank}
+            userMonthlyRank={userMonthlyRank}
+            totalUsers={totalUsers}
+          />
+        )}
 
         {/* Progress Tracking */}
         {dashboardPreferences?.showProgressTracking && (
@@ -330,102 +340,36 @@ export function DashboardContent({
           />
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Activity */}
-          <Card className="lg:col-span-2 bg-card border-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Recent Activity
-              </CardTitle>
-              <CardDescription>Your latest tests and practice sessions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentActivity.length > 0 ? (
-                <div className="space-y-4">
-                  {recentActivity.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="bg-primary/10 text-primary p-2 rounded-lg">
-                          {activity.type === 'test' ? (
-                            <ClipboardList className="h-5 w-5" />
-                          ) : (
-                            <Brain className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-foreground">{activity.title}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(activity.date)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="font-semibold text-foreground">
-                            {activity.score}/{activity.totalMarks}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {((activity.score / activity.totalMarks) * 100).toFixed(0)}%
-                          </div>
-                        </div>
-                        {activity.type === 'test' && activity.testId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => router.push(`/test/${activity.testId}/results/${activity.id}`)}
-                          >
-                            View
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="mx-auto w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <ClipboardList className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                  <p className="text-muted-foreground mb-4">No activity yet</p>
-                  <Button onClick={() => router.push('/test')}>Take Your First Test</Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Recommended Actions */}
           {dashboardPreferences?.showRecommendations && (
             <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Recommended
+              <CardHeader className="px-4 sm:px-6 pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <span className="truncate">Recommended</span>
                 </CardTitle>
-                <CardDescription>Personalized suggestions for you</CardDescription>
+                <CardDescription className="text-xs sm:text-sm">Personalized suggestions for you</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3 sm:space-y-4">
                 {recommendations.map((rec, index) => (
                   <div
                     key={index}
-                    className="p-4 rounded-lg border border-border hover:border-primary/50 transition-colors"
+                    className="p-3 sm:p-4 rounded-lg border border-border hover:border-primary/50 transition-colors"
                   >
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="bg-primary/10 text-primary p-1.5 rounded-md">
-                        <rec.icon className="h-4 w-4 flex-shrink-0" />
+                    <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
+                      <div className="bg-primary/10 text-primary p-1.5 rounded-md flex-shrink-0">
+                        <rec.icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                       </div>
-                      <div>
-                        <h4 className="font-medium text-foreground mb-1">{rec.title}</h4>
-                        <p className="text-sm text-muted-foreground">{rec.description}</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-medium text-foreground text-sm sm:text-base mb-1 break-words">{rec.title}</h4>
+                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{rec.description}</p>
                       </div>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full"
+                      className="w-full text-xs sm:text-sm"
                       onClick={() => router.push(rec.href)}
                     >
                       {rec.action}
@@ -434,17 +378,6 @@ export function DashboardContent({
                 ))}
               </CardContent>
             </Card>
-          )}
-
-          {/* Improvement Trends */}
-          {dashboardPreferences?.showImprovementTrends && (
-            <ImprovementTrends
-              weekOverWeekImprovement={weekOverWeekImprovement}
-              bestScore={bestScore}
-              longestStreak={longestStreak}
-              avgScore={stats.avgScore}
-              currentStreak={stats.currentStreak}
-            />
           )}
 
           {/* Peer Comparison */}
@@ -457,51 +390,64 @@ export function DashboardContent({
           )}
         </div>
 
+        {/* Improvement Trends - Full Width */}
+        {dashboardPreferences?.showImprovementTrends && (
+          <ImprovementTrends
+            weekOverWeekImprovement={weekOverWeekImprovement}
+            bestScore={bestScore}
+            longestStreak={longestStreak}
+            avgScore={stats.avgScore}
+            currentStreak={stats.currentStreak}
+          />
+        )}
+
         {/* Performance Trend */}
         {dashboardPreferences?.showPerformanceTrend && performanceTrend.length > 0 && (
           <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Performance Over Time
+            <CardHeader className="px-4 sm:px-6 pb-4">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                <span className="truncate">Performance Over Time</span>
               </CardTitle>
-              <CardDescription>Your score trend across recent tests</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">Your score trend across recent tests</CardDescription>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={performanceTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="hsl(var(--muted-foreground))"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    domain={[0, 100]} 
-                    stroke="hsl(var(--muted-foreground))"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: 'var(--radius)',
-                    }}
-                    formatter={(value: any) => [`${value}%`, 'Score']}
-                    labelFormatter={(label) => `Date: ${label}`}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="score"
-                    name="Score %"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                    activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+              <div className="w-full overflow-x-auto">
+                <ResponsiveContainer width="100%" height={250} className="sm:h-[300px] min-w-[300px]">
+                  <LineChart data={performanceTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--muted-foreground))"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis 
+                      domain={[0, 100]} 
+                      stroke="hsl(var(--muted-foreground))"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: 'var(--radius)',
+                      }}
+                      formatter={(value: any) => [`${value}%`, 'Score']}
+                      labelFormatter={(label) => `Date: ${label}`}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="score"
+                      name="Score %"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                      activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -509,26 +455,27 @@ export function DashboardContent({
         {/* Weak Areas Alert */}
         {dashboardPreferences?.showWeakAreas && weakAreas.length > 0 && (
           <Card className="border-destructive/20 bg-destructive/5">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-1" />
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive flex-shrink-0 mt-0.5 sm:mt-1" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2 break-words">
                     Areas Needing Attention
                   </h3>
-                  <p className="text-muted-foreground mb-4">
+                  <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4 leading-relaxed">
                     You have lower accuracy ({' <'}60%) in the following topics:
                   </p>
-                  <div className="flex flex-wrap gap-2 mb-4">
+                  <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
                     {weakAreas.map((area) => (
-                      <Badge key={area} variant="secondary" className="bg-destructive/10 text-destructive-foreground">
+                      <Badge key={area} variant="secondary" className="bg-destructive/10 text-destructive-foreground text-xs sm:text-sm">
                         {area}
                       </Badge>
                     ))}
                   </div>
                   <Button
+                    size="sm"
+                    className="sm:size-default bg-destructive hover:bg-destructive/90 text-destructive-foreground w-full sm:w-auto"
                     onClick={() => router.push('/practice')}
-                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                   >
                     Practice These Topics
                   </Button>
@@ -539,13 +486,13 @@ export function DashboardContent({
         )}
 
         {/* Quick Access Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <Card className="bg-primary text-primary-foreground border-0 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => router.push('/practice')}>
-            <CardContent className="p-8 text-center">
-              <Brain className="h-12 w-12 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold mb-2">Start Practice</h3>
-              <p className="text-primary-foreground/80">
+            <CardContent className="p-6 sm:p-8 text-center">
+              <Brain className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 break-words">Start Practice</h3>
+              <p className="text-sm sm:text-base text-primary-foreground/80 leading-relaxed">
                 Choose a topic and practice at your own pace
               </p>
             </CardContent>
@@ -553,10 +500,10 @@ export function DashboardContent({
 
           <Card className="bg-accent text-accent-foreground border-0 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => router.push('/test')}>
-            <CardContent className="p-8 text-center">
-              <ClipboardList className="h-12 w-12 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold mb-2">Take a Test</h3>
-              <p className="text-accent-foreground/80">
+            <CardContent className="p-6 sm:p-8 text-center">
+              <ClipboardList className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 break-words">Take a Test</h3>
+              <p className="text-sm sm:text-base text-accent-foreground/80 leading-relaxed">
                 Experience real exam conditions with timed tests
               </p>
             </CardContent>

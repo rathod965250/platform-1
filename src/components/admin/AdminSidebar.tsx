@@ -11,6 +11,7 @@ import {
   Users,
   Settings,
   LogOut,
+  ClipboardList,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Categories', href: '/admin/categories', icon: FolderTree },
   { name: 'Tests', href: '/admin/tests', icon: FileText },
   { name: 'Questions', href: '/admin/questions', icon: HelpCircle },
+  { name: 'Assignments', href: '/admin/assignments', icon: ClipboardList },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]

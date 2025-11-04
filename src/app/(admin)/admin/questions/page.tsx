@@ -2,9 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Edit, Trash2, Eye, Filter } from 'lucide-react'
+import { Plus, Edit, Trash2, Eye, Filter, HelpCircle as HelpCircleIcon } from 'lucide-react'
 import Link from 'next/link'
 import { DeleteQuestionButton } from '@/components/admin/DeleteQuestionButton'
+import { logAdminError, extractErrorDetails } from '@/lib/admin/error-handler'
+import { ErrorDisplay } from '@/components/admin/ErrorDisplay'
 
 export const metadata = {
   title: 'Manage Questions',
@@ -19,10 +21,29 @@ export default async function QuestionsPage({ searchParams }: PageProps) {
   const params = await searchParams
   const supabase = await createClient()
 
+  // Verify authentication and admin role
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    console.error('Authentication error:', authError)
+  }
+
+  // Fetch questions with proper error handling
+  // Admin can view all questions regardless of test publication status
+  // Use left joins to include questions even if test/subcategory is missing
+  // Fetch all columns including the new ones: solution_steps, hints, formula_used
   let query = supabase
     .from('questions')
     .select(`
       *,
+      option_a,
+      option_b,
+      option_c,
+      option_d,
+      option_e,
+      solution_steps,
+      hints,
+      formula_used,
       test:tests(title, slug),
       subcategory:subcategories(name, category:categories(name))
     `)
@@ -36,8 +57,10 @@ export default async function QuestionsPage({ searchParams }: PageProps) {
   const { data: questions, error } = await query
 
   if (error) {
-    console.error('Error fetching questions:', error)
+    logAdminError('QuestionsPage', error)
   }
+
+  const errorDetails = error ? extractErrorDetails(error) : null
 
   // Get unique test filter options
   const { data: tests } = await supabase
@@ -88,10 +111,13 @@ export default async function QuestionsPage({ searchParams }: PageProps) {
         </Card>
       )}
 
+      {/* Error Display */}
+      {errorDetails && <ErrorDisplay error={errorDetails} context="Questions" />}
+
       {/* Questions List */}
-      {!questions || questions.length === 0 ? (
+      {!errorDetails && (!questions || questions.length === 0) ? (
         <Card className="p-12 text-center">
-          <HelpCircle className="mx-auto h-12 w-12 text-gray-400" />
+          <HelpCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
             No questions yet
           </h3>
@@ -105,7 +131,7 @@ export default async function QuestionsPage({ searchParams }: PageProps) {
             </Button>
           </Link>
         </Card>
-      ) : (
+      ) : !errorDetails && questions && questions.length > 0 ? (
         <div className="grid gap-4">
           {questions.map((question, index) => (
             <Card key={question.id} className="p-6">
@@ -179,26 +205,8 @@ export default async function QuestionsPage({ searchParams }: PageProps) {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
-  )
-}
-
-function HelpCircle({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
   )
 }
 

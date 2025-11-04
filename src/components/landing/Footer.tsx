@@ -105,15 +105,15 @@ export function Footer() {
       } else if (data.reactivated) {
         toast.success('Welcome back! Your subscription has been reactivated.')
       } else {
-        toast.success('Thank you for subscribing! Check your email for confirmation.')
+    toast.success('Thank you for subscribing! Check your email for confirmation.')
       }
 
-      setEmail('')
+    setEmail('')
     } catch (error) {
       console.error('Newsletter subscription error:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to subscribe. Please try again later.')
     } finally {
-      setTimeout(() => setIsSubmitted(false), 3000)
+    setTimeout(() => setIsSubmitted(false), 3000)
     }
   }
 

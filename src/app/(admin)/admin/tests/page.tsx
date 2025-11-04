@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Edit, Trash2, Eye } from 'lucide-react'
 import Link from 'next/link'
 import { DeleteTestButton } from '@/components/admin/DeleteTestButton'
+import { logAdminError, extractErrorDetails } from '@/lib/admin/error-handler'
+import { ErrorDisplay } from '@/components/admin/ErrorDisplay'
 
 export const metadata = {
   title: 'Manage Tests',
@@ -24,8 +26,10 @@ export default async function TestsPage() {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching tests:', error)
+    logAdminError('TestsPage', error)
   }
+
+  const errorDetails = error ? extractErrorDetails(error) : null
 
   return (
     <div className="space-y-6">
@@ -47,79 +51,84 @@ export default async function TestsPage() {
         </Link>
       </div>
 
+      {/* Error Display */}
+      {errorDetails && <ErrorDisplay error={errorDetails} context="Tests" />}
+
       {/* Tests List */}
-      {!tests || tests.length === 0 ? (
-        <Card className="p-12 text-center">
-          <FileText className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-            No tests yet
-          </h3>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Get started by creating your first test
-          </p>
-          <Link href="/admin/tests/new">
-            <Button className="mt-4">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Test
-            </Button>
-          </Link>
-        </Card>
-      ) : (
-        <div className="grid gap-6">
-          {tests.map((test) => (
-            <Card key={test.id} className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {test.title}
-                    </h3>
-                    <Badge variant={test.is_published ? 'default' : 'secondary'}>
-                      {test.is_published ? 'Published' : 'Draft'}
-                    </Badge>
-                    <Badge variant="outline">
-                      {test.test_type === 'mock' && 'Mock Test'}
-                      {test.test_type === 'practice' && 'Practice'}
-                      {test.test_type === 'company_specific' && test.company_name}
-                    </Badge>
-                  </div>
-                  
-                  {test.description && (
-                    <p className="mt-2 text-gray-600 dark:text-gray-400">
-                      {test.description}
-                    </p>
-                  )}
+      {!errorDetails && (
+        (!tests || tests.length === 0) ? (
+          <Card className="p-12 text-center">
+            <FileText className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+              No tests yet
+            </h3>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
+              Get started by creating your first test
+            </p>
+            <Link href="/admin/tests/new">
+              <Button className="mt-4">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Test
+              </Button>
+            </Link>
+          </Card>
+        ) : (
+          <div className="grid gap-6">
+            {tests.map((test) => (
+              <Card key={test.id} className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {test.title}
+                      </h3>
+                      <Badge variant={test.is_published ? 'default' : 'secondary'}>
+                        {test.is_published ? 'Published' : 'Draft'}
+                      </Badge>
+                      <Badge variant="outline">
+                        {test.test_type === 'mock' && 'Mock Test'}
+                        {test.test_type === 'practice' && 'Practice'}
+                        {test.test_type === 'company_specific' && test.company_name}
+                      </Badge>
+                    </div>
+                    
+                    {test.description && (
+                      <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        {test.description}
+                      </p>
+                    )}
 
-                  <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-                    {test.category && (
-                      <span>📚 Category: {test.category.name}</span>
-                    )}
-                    <span>⏱️ Duration: {test.duration_minutes} mins</span>
-                    <span>📝 Questions: {test.questions?.[0]?.count || 0}</span>
-                    <span>💯 Total Marks: {test.total_marks}</span>
-                    {test.negative_marking && (
-                      <span className="text-red-600">❌ Negative Marking</span>
-                    )}
+                    <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
+                      {test.category && (
+                        <span>📚 Category: {test.category.name}</span>
+                      )}
+                      <span>⏱️ Duration: {test.duration_minutes} mins</span>
+                      <span>📝 Questions: {test.questions?.[0]?.count || 0}</span>
+                      <span>💯 Total Marks: {test.total_marks}</span>
+                      {test.negative_marking && (
+                        <span className="text-red-600">❌ Negative Marking</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Link href={`/admin/tests/${test.id}`}>
+                      <Button variant="outline" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link href={`/admin/tests/${test.id}/edit`}>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <DeleteTestButton testId={test.id} testTitle={test.title} />
                   </div>
                 </div>
-
-                <div className="flex gap-2">
-                  <Link href={`/admin/tests/${test.id}`}>
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href={`/admin/tests/${test.id}/edit`}>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <DeleteTestButton testId={test.id} testTitle={test.title} />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        )
       )}
     </div>
   )

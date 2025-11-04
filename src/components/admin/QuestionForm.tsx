@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X, Plus } from 'lucide-react'
 
 // Question options schema based on question type
@@ -45,15 +45,18 @@ const questionOptionsSchema = z.union([
   }),
 ])
 
-// Question schema
+// Question schema - options validation is handled manually in onSubmit
 const questionSchema = z.object({
   test_id: z.string().uuid('Please select a test').optional().nullable(),
   subcategory_id: z.string().uuid('Please select a subcategory'),
   question_type: z.enum(['mcq', 'true_false', 'fill_blank']),
   question_text: z.string().min(10, 'Question must be at least 10 characters'),
-  options: questionOptionsSchema, // Properly typed validation
+  options: z.any().optional(), // Options are validated manually in onSubmit
   correct_answer: z.string().min(1, 'Correct answer is required'),
   explanation: z.string().min(10, 'Explanation must be at least 10 characters'),
+  solution_steps: z.string().optional(), // Step-by-step solution
+  hints: z.string().optional(), // Hints for solving
+  formula_used: z.string().optional(), // Formulas or equations used
   marks: z.number().min(1, 'Marks must be at least 1'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
 })
@@ -86,20 +89,55 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
     watch,
   } = useForm<QuestionFormData>({
     resolver: zodResolver(questionSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      ...initialData,
+      solution_steps: (initialData as any).solution_steps || '',
+      hints: (initialData as any).hints || '',
+      formula_used: (initialData as any).formula_used || '',
+    } : {
       marks: 1,
       difficulty: 'medium',
       question_type: 'mcq',
       test_id: initialTestId || null,
+      solution_steps: '',
+      hints: '',
+      formula_used: '',
     },
   })
 
   const questionType = watch('question_type')
-  const [mcqOptions, setMcqOptions] = useState<string[]>(['', '', '', ''])
+  const [mcqOptions, setMcqOptions] = useState<string[]>(['', '', '', '', '']) // Support up to 5 options (A, B, C, D, E)
 
   const onSubmit = async (data: QuestionFormData) => {
     setIsSubmitting(true)
     try {
+      console.log('[QuestionForm] Form submitted with data:', data)
+      
+      // Validate required fields
+      if (!data.subcategory_id) {
+        toast.error('Please select a subcategory')
+        setIsSubmitting(false)
+        return
+      }
+      
+      if (!data.question_text || data.question_text.trim().length < 10) {
+        toast.error('Question text must be at least 10 characters')
+        setIsSubmitting(false)
+        return
+      }
+      
+      if (!data.explanation || data.explanation.trim().length < 10) {
+        toast.error('Explanation must be at least 10 characters')
+        setIsSubmitting(false)
+        return
+      }
+      
+      if (!data.correct_answer || data.correct_answer.trim().length === 0) {
+        toast.error('Please provide a correct answer')
+        setIsSubmitting(false)
+        return
+      }
+
       // Prepare options based on question type
       let options: any = {}
       
@@ -110,57 +148,209 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
           setIsSubmitting(false)
           return
         }
+        // Ensure correct answer is in the options
+        if (!filteredOptions.includes(data.correct_answer)) {
+          toast.error('Correct answer must match one of the options')
+          setIsSubmitting(false)
+          return
+        }
+        // For backward compatibility, keep options JSONB
         options = { options: filteredOptions }
       } else if (data.question_type === 'true_false') {
         options = { options: ['True', 'False'] }
+        // Ensure correct answer is 'True' or 'False'
+        if (!['True', 'False'].includes(data.correct_answer)) {
+          toast.error('Correct answer must be "True" or "False"')
+          setIsSubmitting(false)
+          return
+        }
       } else if (data.question_type === 'fill_blank') {
         options = { acceptableAnswers: [data.correct_answer] }
       }
 
-      const questionData = {
-        ...data,
-        options,
-        test_id: data.test_id || null,
+      // Prepare question data matching database schema
+      // Column order: question_text, question_type, difficulty, 
+      // option_a, option_b, option_c, option_d, option_e,
+      // correct_answer, explanation, solution_steps, hints,
+      // formula_used, marks
+      const questionData: any = {
+        subcategory_id: data.subcategory_id,
+        question_type: data.question_type,
+        question_text: data.question_text,
+        difficulty: data.difficulty,
+        correct_answer: data.correct_answer,
+        explanation: data.explanation,
+        solution_steps: data.solution_steps || null,
+        hints: data.hints || null,
+        formula_used: data.formula_used || null,
+        marks: data.marks,
+        order: 0, // Default order
       }
+
+      // For MCQ questions, store options in individual columns
+      if (data.question_type === 'mcq') {
+        const filteredOptions = mcqOptions.filter(opt => opt.trim() !== '')
+        questionData.option_a = filteredOptions[0] || null
+        questionData.option_b = filteredOptions[1] || null
+        questionData.option_c = filteredOptions[2] || null
+        questionData.option_d = filteredOptions[3] || null
+        questionData.option_e = filteredOptions[4] || null
+        // Keep options JSONB for backward compatibility
+        questionData.options = options
+      } else {
+        // For other question types, use options JSONB
+        questionData.options = options
+      }
+
+      // Only include test_id if it's provided and not 'none' (it's optional)
+      if (data.test_id && data.test_id !== 'none' && data.test_id !== null) {
+        questionData.test_id = data.test_id
+      } else {
+        // Explicitly set to null if not provided
+        questionData.test_id = null
+      }
+
+      console.log('[QuestionForm] Prepared question data:', questionData)
+      
+      // Verify user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.error('[QuestionForm] Authentication error:', authError)
+        toast.error('You must be logged in to create questions')
+        setIsSubmitting(false)
+        return
+      }
+      
+      console.log('[QuestionForm] User authenticated:', user.id)
 
       if (initialData?.id) {
         // Update existing question
-        const { error } = await supabase
+        console.log('[QuestionForm] Updating question:', initialData.id)
+        const { data: updatedData, error } = await supabase
           .from('questions')
           .update(questionData)
           .eq('id', initialData.id)
+          .select()
 
-        if (error) throw error
+        if (error) {
+          console.error('[QuestionForm] Error updating question:', error)
+          console.error('[QuestionForm] Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          })
+          throw error
+        }
+        console.log('[QuestionForm] Question updated successfully:', updatedData)
         toast.success('Question updated successfully')
       } else {
         // Create new question
-        const { error } = await supabase
+        console.log('[QuestionForm] Creating new question')
+        const { data: insertedData, error } = await supabase
           .from('questions')
           .insert([questionData])
+          .select()
 
-        if (error) throw error
+        if (error) {
+          console.error('[QuestionForm] Error creating question:', error)
+          console.error('[QuestionForm] Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          })
+          throw error
+        }
+        console.log('[QuestionForm] Question created successfully:', insertedData)
         toast.success('Question created successfully')
       }
 
+      // Wait a moment for the database to update
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       router.push('/admin/questions')
       router.refresh()
     } catch (error: any) {
-      console.error('Error saving question:', error)
-      toast.error(error.message || 'Failed to save question')
+      console.error('[QuestionForm] Error saving question:', error)
+      console.error('[QuestionForm] Full error object:', JSON.stringify(error, null, 2))
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to save question'
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (error?.details) {
+        errorMessage = error.details
+      } else if (error?.hint) {
+        errorMessage = error.hint
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      }
+      
+      // Handle specific Supabase error codes
+      if (error?.code === 'PGRST116') {
+        errorMessage = 'Question not found'
+      } else if (error?.code === '42501') {
+        errorMessage = 'Permission denied. You must be an admin to create questions.'
+      } else if (error?.code === '23505') {
+        errorMessage = 'A question with these details already exists'
+      } else if (error?.code === '23503') {
+        errorMessage = 'Invalid subcategory or test reference'
+      }
+      
+      toast.error(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Get subcategories for selected category
-  const subcategories = categories.find(cat => cat.id === selectedCategory)?.subcategories || []
+  // Get subcategories for selected category - memoize to prevent recreating array
+  const subcategories = useMemo(() => {
+    return categories.find(cat => cat.id === selectedCategory)?.subcategories || []
+  }, [categories, selectedCategory])
 
-  // Load options if editing MCQ
+  // Load initial data when editing - use stable dependencies
   useEffect(() => {
-    if (initialData?.options && typeof initialData.options === 'object' && 'options' in initialData.options) {
-      setMcqOptions(initialData.options.options)
+    if (!initialData) return
+
+    // Set category if subcategory is provided
+    if (initialData.subcategory_id) {
+      const category = categories.find(cat => 
+        cat.subcategories.some(sub => sub.id === initialData.subcategory_id)
+      )
+      if (category && category.id !== selectedCategory) {
+        setSelectedCategory(category.id)
+      }
     }
-  }, [initialData])
+    
+    // Load MCQ options if editing
+    // First try to load from individual columns (new format)
+    if (initialData && (initialData as any).option_a) {
+      const optionsArray: string[] = []
+      if ((initialData as any).option_a) optionsArray.push((initialData as any).option_a)
+      if ((initialData as any).option_b) optionsArray.push((initialData as any).option_b)
+      if ((initialData as any).option_c) optionsArray.push((initialData as any).option_c)
+      if ((initialData as any).option_d) optionsArray.push((initialData as any).option_d)
+      if ((initialData as any).option_e) optionsArray.push((initialData as any).option_e)
+      // Pad to minimum 4 options for UI (but keep existing if less than 4)
+      while (optionsArray.length < 4) {
+        optionsArray.push('')
+      }
+      setMcqOptions(optionsArray)
+    } else if (initialData?.options && typeof initialData.options === 'object' && 'options' in initialData.options) {
+      // Fallback to old JSONB format for backward compatibility
+      const optionsArray = (initialData.options as any).options
+      if (Array.isArray(optionsArray) && optionsArray.length > 0) {
+        // Pad to minimum 4 options for UI (but keep existing if less than 4)
+        while (optionsArray.length < 4) {
+          optionsArray.push('')
+        }
+        setMcqOptions(optionsArray)
+      }
+    }
+    // Only depend on stable primitive values
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.id, initialData?.subcategory_id])
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -175,8 +365,12 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
           <div>
             <Label htmlFor="test_id">Test (Optional)</Label>
             <Select
-              onValueChange={(value) => setValue('test_id', value === 'none' ? null : value)}
+              onValueChange={(value) => {
+                const testId = value === 'none' ? null : value
+                setValue('test_id', testId, { shouldValidate: true })
+              }}
               defaultValue={initialData?.test_id || initialTestId || 'none'}
+              value={watch('test_id') || 'none'}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select test" />
@@ -193,6 +387,9 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
             <p className="mt-1 text-sm text-gray-500">
               Leave empty to make question available for all tests
             </p>
+            {errors.test_id && (
+              <p className="mt-1 text-sm text-red-600">{errors.test_id.message}</p>
+            )}
           </div>
 
           {/* Category & Subcategory */}
@@ -202,8 +399,12 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
               <Select
                 onValueChange={(value) => {
                   setSelectedCategory(value)
-                  setValue('subcategory_id', '') // Reset subcategory
+                  setValue('subcategory_id', '', { shouldValidate: true }) // Reset subcategory
                 }}
+                value={selectedCategory || (initialData?.subcategory_id ? 
+                  categories.find(cat => 
+                    cat.subcategories.some(sub => sub.id === initialData.subcategory_id)
+                  )?.id || undefined : undefined)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
@@ -221,19 +422,27 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
             <div>
               <Label htmlFor="subcategory_id">Subcategory *</Label>
               <Select
-                onValueChange={(value) => setValue('subcategory_id', value)}
-                defaultValue={initialData?.subcategory_id}
+                onValueChange={(value) => {
+                  setValue('subcategory_id', value, { shouldValidate: true })
+                }}
+                value={watch('subcategory_id') || undefined}
                 disabled={!selectedCategory && !initialData?.subcategory_id}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select subcategory" />
                 </SelectTrigger>
                 <SelectContent>
-                  {subcategories.map((subcategory) => (
-                    <SelectItem key={subcategory.id} value={subcategory.id}>
-                      {subcategory.name}
-                    </SelectItem>
-                  ))}
+                  {subcategories.length > 0 ? (
+                    subcategories.map((subcategory) => (
+                      <SelectItem key={subcategory.id} value={subcategory.id}>
+                        {subcategory.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      Select a category first
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
               {errors.subcategory_id && (
@@ -344,7 +553,7 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
                 )}
               </div>
             ))}
-            {mcqOptions.length < 6 && (
+            {mcqOptions.length < 5 && (
               <Button
                 type="button"
                 variant="outline"
@@ -437,6 +646,74 @@ export function QuestionForm({ tests, categories, initialData, initialTestId }: 
           )}
           <p className="mt-1 text-sm text-gray-500">
             Help students understand why the answer is correct
+          </p>
+        </div>
+      </Card>
+
+      {/* Solution Steps */}
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Solution Steps
+        </h2>
+
+        <div>
+          <Label htmlFor="solution_steps">Step-by-Step Solution</Label>
+          <Textarea
+            id="solution_steps"
+            {...register('solution_steps')}
+            placeholder="Provide step-by-step solution or breakdown for the question..."
+            rows={6}
+          />
+          {errors.solution_steps && (
+            <p className="mt-1 text-sm text-red-600">{errors.solution_steps.message}</p>
+          )}
+          <p className="mt-1 text-sm text-gray-500">
+            Break down the solution into clear, sequential steps
+          </p>
+        </div>
+      </Card>
+
+      {/* Hints */}
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Hints
+        </h2>
+
+        <div>
+          <Label htmlFor="hints">Hints for Solving</Label>
+          <Textarea
+            id="hints"
+            {...register('hints')}
+            placeholder="Provide hints or clues to help solve the question..."
+            rows={4}
+          />
+          {errors.hints && (
+            <p className="mt-1 text-sm text-red-600">{errors.hints.message}</p>
+          )}
+          <p className="mt-1 text-sm text-gray-500">
+            Give students helpful clues without giving away the answer
+          </p>
+        </div>
+      </Card>
+
+      {/* Formula Used */}
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Formula Used
+        </h2>
+
+        <div>
+          <Label htmlFor="formula_used">Formulas or Equations</Label>
+          <Input
+            id="formula_used"
+            {...register('formula_used')}
+            placeholder="e.g., E=mc², F=ma, a²+b²=c²"
+          />
+          {errors.formula_used && (
+            <p className="mt-1 text-sm text-red-600">{errors.formula_used.message}</p>
+          )}
+          <p className="mt-1 text-sm text-gray-500">
+            List any formulas or equations relevant to solving this question
           </p>
         </div>
       </Card>
