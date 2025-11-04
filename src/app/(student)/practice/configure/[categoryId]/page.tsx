@@ -127,10 +127,9 @@ export default function PracticeConfigurePage() {
 
       if (sessionError) throw sessionError
 
-      // Navigate to practice interface with category slug and selected topics
+      // Navigate to practice interface with category ID and selected topics
       const selectedIds = Array.from(selectedSubcategories).join(',')
-      const categorySlug = category?.slug || category?.name?.toLowerCase().replace(/\s+/g, '-')
-      router.push(`/practice/adaptive/${categorySlug}?sessionId=${session.id}&topics=${selectedIds}`)
+      router.push(`/practice/adaptive/${categoryId}?sessionId=${session.id}&topics=${selectedIds}`)
     } catch (error: any) {
       console.error('Error starting practice:', error)
       toast.error(error.message || 'Failed to start practice session')

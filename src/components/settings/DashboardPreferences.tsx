@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -44,48 +44,140 @@ export function DashboardPreferences({
     ...(currentPreferences || {}),
   }))
   const [isSaving, setIsSaving] = useState(false)
-  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Debounced save function
   const savePreferences = useCallback(async (newPreferences: DashboardPreferences) => {
-    if (saveTimeout) {
-      clearTimeout(saveTimeout)
+    // Validate userId
+    if (!userId) {
+      console.error('Cannot save preferences: userId is missing')
+      toast.error('User ID is missing. Please refresh the page and try again.')
+      return
     }
 
-    const timeout = setTimeout(async () => {
+    // Clear existing timeout if any
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+
+    // Set new timeout
+    saveTimeoutRef.current = setTimeout(async () => {
       setIsSaving(true)
       try {
         const supabase = createClient()
+        
+        // First verify user is authenticated
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+        if (authError || !authUser || authUser.id !== userId) {
+          console.error('Authentication error:', { authError, authUser, userId })
+          toast.error('Authentication failed. Please refresh the page and try again.')
+          return
+        }
+
+        // Update preferences - use rpc or direct update
         const { error } = await supabase
           .from('profiles')
           .update({ dashboard_preferences: newPreferences })
           .eq('id', userId)
 
         if (error) {
-          console.error('Error saving preferences:', error)
-          toast.error('Failed to save preferences. Please try again.')
+          // Log full error details - capture all possible properties
+          const errorAny = error as any
+          const errorInfo: any = {
+            error: error,
+            errorType: typeof error,
+            errorConstructor: error?.constructor?.name,
+            errorString: String(error),
+            errorMessage: errorAny?.message,
+            errorDetails: errorAny?.details,
+            errorHint: errorAny?.hint,
+            errorCode: errorAny?.code,
+            errorStatus: errorAny?.status,
+            errorStatusText: errorAny?.statusText,
+            errorResponse: errorAny?.response,
+            errorRequest: errorAny?.request,
+            userId,
+            preferences: JSON.stringify(newPreferences)
+          }
+          
+          // Try to get all enumerable properties
+          try {
+            Object.keys(error || {}).forEach(key => {
+              errorInfo[`error_${key}`] = (error as any)[key]
+            })
+          } catch (e) {
+            // Ignore if we can't enumerate
+          }
+          
+          console.error('Error saving preferences - Full details:', errorInfo)
+          
+          // Extract error message with better handling
+          let errorMessage = 'Failed to save preferences. Please try again.'
+          
+          // Try to get error message from various properties
+          if (errorAny?.message && typeof errorAny.message === 'string' && errorAny.message.length > 0) {
+            errorMessage = errorAny.message
+          } else if (errorAny?.details && typeof errorAny.details === 'string' && errorAny.details.length > 0) {
+            errorMessage = errorAny.details
+          } else if (errorAny?.hint && typeof errorAny.hint === 'string' && errorAny.hint.length > 0) {
+            errorMessage = errorAny.hint
+          } else if (errorAny?.code) {
+            // Handle specific error codes
+            if (errorAny.code === 'PGRST116') {
+              errorMessage = 'Profile not found. Please refresh the page.'
+            } else if (errorAny.code === '42501') {
+              errorMessage = 'Permission denied. The RLS policy may be missing. Please run the SQL fix in APPLY_RLS_FIX.sql'
+            } else if (errorAny.code === 'PGRST301') {
+              errorMessage = 'Multiple rows returned. Please contact support.'
+            } else {
+              errorMessage = `Error code: ${errorAny.code}. Please check console for details.`
+            }
+          } else if (String(error) !== '[object Object]') {
+            errorMessage = String(error)
+          }
+          
+          toast.error(errorMessage)
         } else {
           toast.success('Preferences saved successfully!')
         }
-      } catch (error) {
-        console.error('Error saving preferences:', error)
-        toast.error('An unexpected error occurred.')
+      } catch (error: any) {
+        // Log full error for debugging
+        console.error('Error saving preferences (catch):', {
+          message: error?.message,
+          name: error?.name,
+          stack: error?.stack,
+          error: error
+        })
+        
+        // Handle different error types
+        let errorMessage = 'An unexpected error occurred. Please try again.'
+        
+        if (error?.message) {
+          errorMessage = error.message
+        } else if (typeof error === 'string') {
+          errorMessage = error
+        } else if (error?.toString && error.toString() !== '[object Object]') {
+          errorMessage = error.toString()
+        }
+        
+        toast.error(errorMessage)
       } finally {
         setIsSaving(false)
+        saveTimeoutRef.current = null
       }
     }, 500) // 500ms debounce
-
-    setSaveTimeout(timeout)
-  }, [userId, saveTimeout])
+  }, [userId])
 
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (saveTimeout) {
-        clearTimeout(saveTimeout)
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
       }
     }
-  }, [saveTimeout])
+  }, [])
 
   const handleToggle = (key: keyof DashboardPreferences, value: boolean) => {
     const newPreferences = {
@@ -97,24 +189,87 @@ export function DashboardPreferences({
   }
 
   const handleReset = async () => {
+    // Validate userId
+    if (!userId) {
+      console.error('Cannot reset preferences: userId is missing')
+      toast.error('User ID is missing. Please refresh the page and try again.')
+      return
+    }
+
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+
     setPreferences(defaultPreferences)
     setIsSaving(true)
     try {
       const supabase = createClient()
-      const { error } = await supabase
+      
+      // First verify user is authenticated
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+      if (authError || !authUser || authUser.id !== userId) {
+        console.error('Authentication error:', { authError, authUser, userId })
+        toast.error('Authentication failed. Please refresh the page and try again.')
+        return
+      }
+
+      // Update preferences - simplified query
+      const { data, error } = await supabase
         .from('profiles')
         .update({ dashboard_preferences: defaultPreferences })
         .eq('id', userId)
 
       if (error) {
+        // Log error for debugging
         console.error('Error resetting preferences:', error)
-        toast.error('Failed to reset preferences. Please try again.')
+        
+        // Extract error message
+        let errorMessage = 'Failed to reset preferences. Please try again.'
+        const errorAny = error as any
+        
+        if (errorAny?.message) {
+          errorMessage = errorAny.message
+        } else if (errorAny?.details) {
+          errorMessage = errorAny.details
+        } else if (errorAny?.hint) {
+          errorMessage = errorAny.hint
+        } else if (errorAny?.code) {
+          if (errorAny.code === 'PGRST116') {
+            errorMessage = 'Profile not found. Please refresh the page.'
+          } else if (errorAny.code === '42501') {
+            errorMessage = 'Permission denied. Please check your account settings.'
+          } else {
+            errorMessage = `Error ${errorAny.code}. Please try again.`
+          }
+        }
+        
+        toast.error(errorMessage)
       } else {
         toast.success('Preferences reset to defaults!')
       }
-    } catch (error) {
-      console.error('Error resetting preferences:', error)
-      toast.error('An unexpected error occurred.')
+    } catch (error: any) {
+      // Log full error for debugging
+      console.error('Error resetting preferences (catch):', {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        error: error
+      })
+      
+      // Handle different error types
+      let errorMessage = 'An unexpected error occurred. Please try again.'
+      
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      } else if (error?.toString && error.toString() !== '[object Object]') {
+        errorMessage = error.toString()
+      }
+      
+      toast.error(errorMessage)
     } finally {
       setIsSaving(false)
     }

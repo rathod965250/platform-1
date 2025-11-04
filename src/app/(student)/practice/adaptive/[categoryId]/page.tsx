@@ -9,7 +9,7 @@ export const metadata = {
 
 interface PageProps {
   params: Promise<{
-    slug: string
+    categoryId: string
   }>
   searchParams: Promise<{
     sessionId?: string
@@ -18,7 +18,7 @@ interface PageProps {
 }
 
 export default async function AdaptivePracticePage({ params, searchParams }: PageProps) {
-  const { slug } = await params
+  const { categoryId } = await params
   const { sessionId, topics } = await searchParams
 
   const supabase = await createClient()
@@ -28,11 +28,11 @@ export default async function AdaptivePracticePage({ params, searchParams }: Pag
     redirect('/login')
   }
 
-  // Fetch category by slug first
+  // Fetch category by ID
   const { data: category, error: categoryError } = await supabase
     .from('categories')
     .select('*')
-    .eq('slug', slug)
+    .eq('id', categoryId)
     .single()
 
   if (categoryError || !category) {

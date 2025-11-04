@@ -19,7 +19,7 @@ export function ImprovementTrends({
   currentStreak,
 }: ImprovementTrendsProps) {
   const isImproving = weekOverWeekImprovement > 0
-  const improvementIcon = isImproving ? TrendingUp : TrendingDown
+  const ImprovementIcon = isImproving ? TrendingUp : TrendingDown
   const improvementColor = isImproving ? 'text-green-600' : 'text-red-600'
   const improvementBg = isImproving ? 'bg-green-500/10' : 'bg-red-500/10'
 
@@ -43,7 +43,7 @@ export function ImprovementTrends({
                 This Week's Improvement
               </span>
               <div className={`p-2 rounded-lg ${improvementBg}`}>
-                <improvementIcon className={`h-4 w-4 ${improvementColor}`} />
+                <ImprovementIcon className={`h-4 w-4 ${improvementColor}`} />
               </div>
             </div>
             <div className="flex items-baseline gap-2">

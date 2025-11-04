@@ -5,6 +5,7 @@ import { PracticeStats } from '@/components/practice/PracticeStats'
 import { PracticeCategoryCard } from '@/components/practice/PracticeCategoryCard'
 import { RecentSessions } from '@/components/practice/RecentSessions'
 import { PerformanceHighlights } from '@/components/practice/PerformanceHighlights'
+import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { Sparkles } from 'lucide-react'
 
 export const metadata = {
@@ -216,9 +217,113 @@ export default async function PracticePage() {
     .sort((a, b) => a.mastery_score - b.mastery_score)
     .slice(0, 3)
 
+  // Fetch user profile for DashboardShell
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  // Fetch test attempts for stats
+  const { data: testAttempts } = await supabase
+    .from('test_attempts')
+    .select(`
+      id,
+      score,
+      total_questions,
+      submitted_at,
+      test:tests(total_marks)
+    `)
+    .eq('user_id', user.id)
+    .not('submitted_at', 'is', null)
+    .order('submitted_at', { ascending: false })
+
+  // Calculate stats for DashboardShell
+  const totalTests = testAttempts?.length || 0
+  const totalQuestionsAnswered = (testAttempts?.reduce((sum, attempt) => sum + attempt.total_questions, 0) || 0) + totalQuestions
+
+  const avgScore = totalTests > 0
+    ? testAttempts!.reduce((sum, attempt) => {
+        const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+        const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+        const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
+        if (totalMarks === 0) return sum
+        const percentage = (attempt.score / totalMarks) * 100
+        return sum + percentage
+      }, 0) / totalTests
+    : 0
+
+  // Build recent activity for DashboardShell
+  const recentActivity = [
+    ...(testAttempts?.slice(0, 3).map(attempt => {
+      const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+      const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+      return {
+        type: 'test' as const,
+        id: attempt.id,
+        title: (testObj && 'title' in testObj ? String(testObj.title) : 'Test'),
+        date: attempt.submitted_at || new Date().toISOString(),
+        score: attempt.score,
+        totalMarks: (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100),
+        testId: (testObj && 'id' in testObj ? String(testObj.id) : undefined) || undefined,
+      }
+    }) || []),
+    ...(practiceSessions?.slice(0, 2).map(session => ({
+      type: 'practice' as const,
+      id: session.id,
+      title: `Practice Session`,
+      date: session.completed_at || session.created_at,
+      score: session.correct_answers,
+      totalMarks: session.total_questions,
+    })) || []),
+  ]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5)
+
+  // Performance trend for DashboardShell
+  const performanceTrend = testAttempts?.slice(0, 10).reverse().map((attempt, index) => {
+    const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+    const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+    const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
+    const percentage = totalMarks > 0 ? (attempt.score / totalMarks) * 100 : 0
+    return {
+      index: index + 1,
+      score: percentage.toFixed(1),
+      date: new Date(attempt.submitted_at || new Date().toISOString()).toLocaleDateString(),
+    }
+  }) || []
+
+  // Build mastery levels map
+  const masteryLevels: Record<string, number> = {}
+  adaptiveStates?.forEach((state) => {
+    if (state.category?.name) {
+      const mastery = typeof state.mastery_score === 'number'
+        ? state.mastery_score
+        : parseFloat(String(state.mastery_score || 0))
+      masteryLevels[state.category.name] = mastery
+    }
+  })
+
+  // Weak areas array for DashboardShell
+  const weakAreasArray = weakAreas.map(cat => cat.category_name)
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 py-8">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <DashboardShell
+      profile={profile}
+      stats={{
+        totalTests,
+        avgScore,
+        totalQuestionsAnswered,
+        currentStreak,
+      }}
+      recentActivity={recentActivity}
+      performanceTrend={performanceTrend}
+      weakAreas={weakAreasArray}
+      masteryLevels={masteryLevels}
+      adaptiveStates={adaptiveStates || []}
+    >
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 py-8">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         {/* Hero Section */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
@@ -314,7 +419,8 @@ export default async function PracticePage() {
           })()}
         </div>
       </div>
-    </div>
+      </div>
+    </DashboardShell>
   )
 }
 

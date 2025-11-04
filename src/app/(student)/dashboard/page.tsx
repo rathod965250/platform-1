@@ -25,11 +25,11 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // Fetch user profile including dashboard preferences
+  // Fetch user profile including dashboard preferences and avatar_url
   // Note: Onboarding check is handled by middleware, so we can skip it here to avoid duplicate queries
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*, dashboard_preferences')
+    .select('*')
     .eq('id', user.id)
     .single()
 
@@ -106,15 +106,16 @@ export default async function DashboardPage() {
   // Get recent activity (last 5 items combined)
   const recentActivity = [
     ...(testAttempts?.slice(0, 3).map(attempt => {
-      const test = attempt.test
+      const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+      const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
       return {
         type: 'test' as const,
         id: attempt.id,
-        title: test?.title || 'Test',
-        date: attempt.submitted_at || attempt.created_at, // Safe fallback
+        title: (testObj && 'title' in testObj ? String(testObj.title) : 'Test'),
+        date: attempt.submitted_at || new Date().toISOString(), // Safe fallback
         score: attempt.score,
-        totalMarks: test?.total_marks || 100, // Default to 100 if test is missing
-        testId: test?.id || attempt.test_id, // Fallback to test_id if relation is null
+        totalMarks: (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100),
+        testId: (testObj && 'id' in testObj ? String(testObj.id) : undefined) || undefined,
       }
     }) || []),
     ...(practiceSessions?.slice(0, 2).map(session => ({
@@ -131,13 +132,14 @@ export default async function DashboardPage() {
 
   // Performance trend data (last 10 test attempts)
   const performanceTrend = testAttempts?.slice(0, 10).reverse().map((attempt, index) => {
-    const test = attempt.test
-    const totalMarks = test?.total_marks || 100 // Safe fallback
+    const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+    const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+    const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100) // Safe fallback
     const percentage = totalMarks > 0 ? (attempt.score / totalMarks) * 100 : 0
     return {
       index: index + 1,
       score: percentage.toFixed(1),
-      date: new Date(attempt.submitted_at || attempt.created_at).toLocaleDateString(), // Safe fallback
+      date: new Date(attempt.submitted_at || new Date().toISOString()).toLocaleDateString(), // Safe fallback
     }
   }) || []
 
@@ -172,7 +174,13 @@ export default async function DashboardPage() {
     // Process answers in-memory
     allAnswers?.forEach((answer) => {
       // Safe navigation for nested relations
-      const categoryName = answer.question?.subcategory?.category?.name || 'Other'
+      const question = Array.isArray(answer.question) ? answer.question[0] : answer.question
+      const questionObj = question && typeof question === 'object' && !Array.isArray(question) ? question : null
+      const subcategory = questionObj && 'subcategory' in questionObj ? (Array.isArray(questionObj.subcategory) ? questionObj.subcategory[0] : questionObj.subcategory) : null
+      const subcategoryObj = subcategory && typeof subcategory === 'object' && !Array.isArray(subcategory) ? subcategory : null
+      const category = subcategoryObj && 'category' in subcategoryObj ? (Array.isArray(subcategoryObj.category) ? subcategoryObj.category[0] : subcategoryObj.category) : null
+      const categoryObj = category && typeof category === 'object' && !Array.isArray(category) ? category : null
+      const categoryName = (categoryObj && 'name' in categoryObj ? String(categoryObj.name) : 'Other')
       if (!categoryPerformance[categoryName]) {
         categoryPerformance[categoryName] = { correct: 0, total: 0 }
       }
@@ -289,8 +297,9 @@ export default async function DashboardPage() {
   const currentWeekScores = testAttempts
     ?.filter(a => a.submitted_at && new Date(a.submitted_at) >= new Date(weekAgo))
     .map(attempt => {
-      const test = attempt.test
-      const totalMarks = test?.total_marks || 100
+      const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+      const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+      const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
       return totalMarks > 0 ? (attempt.score / totalMarks) * 100 : 0
     }) || []
 
@@ -301,8 +310,9 @@ export default async function DashboardPage() {
       return submittedDate >= new Date(twoWeeksAgo) && submittedDate < new Date(weekAgo)
     })
     .map(attempt => {
-      const test = attempt.test
-      const totalMarks = test?.total_marks || 100
+      const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+      const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+      const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
       return totalMarks > 0 ? (attempt.score / totalMarks) * 100 : 0
     }) || []
 
@@ -321,8 +331,9 @@ export default async function DashboardPage() {
   // Calculate best score
   const bestScore = testAttempts
     ?.map(attempt => {
-      const test = attempt.test
-      const totalMarks = test?.total_marks || 100
+      const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+      const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+      const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
       return totalMarks > 0 ? (attempt.score / totalMarks) * 100 : 0
     })
     .reduce((max, score) => Math.max(max, score), 0) || 0

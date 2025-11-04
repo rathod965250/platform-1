@@ -6,20 +6,19 @@ import { useRouter, usePathname } from 'next/navigation'
 import {
   BarChart3,
   Brain,
-  BookOpen,
   Trophy,
   Target,
   TrendingUp,
-  Clock,
   User,
   Settings,
   LogOut,
-  Zap,
   ClipboardList,
   FileText,
   Award,
   HelpCircle,
-  PanelLeftIcon,
+  Building2,
+  Upload,
+  ChevronRight,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -31,7 +30,6 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,11 +49,15 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
+  SidebarInset,
+  SidebarRail,
 } from '@/components/ui/sidebar'
-import { StudentSidebar } from './StudentSidebar'
-import { SidebarProvider as CustomSidebarProvider, useSidebar } from '@/contexts/SidebarContext'
+import { AccountModals } from './AccountModals'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
@@ -99,8 +101,81 @@ function DashboardShellContent({
 }: DashboardShellProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const [sidebarMode, setSidebarMode] = useState<'detailed' | 'icon-only' | 'hidden'>('detailed')
-  const { setSidebarVisible } = useSidebar()
+  const [isTestMenuOpen, setIsTestMenuOpen] = useState(false)
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const [openProfileModal, setOpenProfileModal] = useState(false)
+  const [openSettingsModal, setOpenSettingsModal] = useState(false)
+  const [openHelpModal, setOpenHelpModal] = useState(false)
+
+  // Auto-expand test menu when on test page
+  React.useEffect(() => {
+    if (pathname === '/test' || pathname === '/test/mock' || pathname === '/test/company-specific' || pathname === '/test/custom' || pathname?.startsWith('/test/')) {
+      setIsTestMenuOpen(true)
+    }
+  }, [pathname])
+
+  // Auto-expand account menu when modals are open
+  React.useEffect(() => {
+    if (openProfileModal || openSettingsModal || openHelpModal) {
+      setIsAccountMenuOpen(true)
+    }
+  }, [openProfileModal, openSettingsModal, openHelpModal])
+
+
+  // Generate breadcrumb based on current pathname
+  const breadcrumbItems = (() => {
+    const items = [
+      { label: 'Home', href: '/' }
+    ]
+
+    if (pathname === '/dashboard') {
+      items.push({ label: 'Dashboard', href: null })
+    } else if (pathname === '/practice' || pathname?.startsWith('/practice/')) {
+      items.push({ label: 'Practice', href: '/practice' })
+      if (pathname === '/practice/configure') {
+        items.push({ label: 'Configure', href: null })
+      } else if (pathname?.includes('/adaptive/')) {
+        items.push({ label: 'Adaptive Practice', href: null })
+      } else if (pathname?.includes('/summary')) {
+        items.push({ label: 'Summary', href: null })
+      }
+    } else if (pathname === '/test' || pathname?.startsWith('/test/')) {
+      items.push({ label: 'Test', href: '/test' })
+      if (pathname === '/test/mock' || pathname?.startsWith('/test/mock/')) {
+        items.push({ label: 'Mock Tests', href: '/test/mock' })
+      } else if (pathname === '/test/company-specific' || pathname?.startsWith('/test/company-specific/')) {
+        items.push({ label: 'Company Specific', href: '/test/company-specific' })
+      } else if (pathname === '/test/custom' || pathname?.startsWith('/test/custom/')) {
+        items.push({ label: 'Custom Test', href: '/test/custom' })
+      } else if (pathname?.includes('/active/')) {
+        items.push({ label: 'Active Test', href: null })
+      } else if (pathname?.includes('/results/')) {
+        items.push({ label: 'Results', href: null })
+      }
+    } else if (pathname === '/results' || pathname?.startsWith('/results/')) {
+      items.push({ label: 'Results', href: '/results' })
+    } else if (pathname === '/leaderboard' || pathname?.startsWith('/leaderboard/')) {
+      items.push({ label: 'Leaderboard', href: '/leaderboard' })
+    } else if (pathname === '/profile' || pathname?.startsWith('/profile/')) {
+      items.push({ label: 'Profile', href: '/profile' })
+    } else if (pathname === '/settings' || pathname?.startsWith('/settings/')) {
+      items.push({ label: 'Settings', href: '/settings' })
+    } else if (pathname === '/analytics' || pathname?.startsWith('/analytics/')) {
+      items.push({ label: 'Analytics', href: '/analytics' })
+    } else {
+      // Default: try to extract page name from pathname
+      const pathParts = pathname?.split('/').filter(Boolean) || []
+      if (pathParts.length > 0) {
+        const pageName = pathParts[pathParts.length - 1]
+        const capitalized = pageName.charAt(0).toUpperCase() + pageName.slice(1).replace(/-/g, ' ')
+        items.push({ label: capitalized, href: null })
+      }
+    }
+
+    return items
+  })()
+
+  const getBreadcrumbItems = () => breadcrumbItems
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -123,71 +198,24 @@ function DashboardShellContent({
       .slice(0, 2)
   }
 
-  const cycleSidebar = () => {
-    setSidebarMode(prev => {
-      switch (prev) {
-        case 'detailed':
-          return 'icon-only'
-        case 'icon-only':
-          return 'detailed' // Switch back to detailed sidebar when in icon-only mode
-        case 'hidden':
-          return 'detailed'
-        default:
-          return 'detailed'
-      }
-    })
-  }
-
-  // Get appropriate button title based on current state
-  const getSidebarButtonTitle = () => {
-    switch (sidebarMode) {
-      case 'detailed':
-        return 'Switch to icon sidebar'
-      case 'icon-only':
-        return 'Show detailed sidebar'
-      case 'hidden':
-        return 'Show detailed sidebar'
-      default:
-        return 'Toggle sidebar'
-    }
-  }
-
-  // Update sidebar visibility based on state
-  React.useEffect(() => {
-    switch (sidebarMode) {
-      case 'icon-only':
-        setSidebarVisible(true)
-        break
-      case 'hidden':
-        setSidebarVisible(false)
-        break
-      default:
-        setSidebarVisible(false) // Hide StudentSidebar when in detailed mode
-        break
-    }
-  }, [sidebarMode, setSidebarVisible])
 
   return (
-    <div className="flex min-h-dvh w-full">
-      <SidebarProvider>
-        {sidebarMode === 'icon-only' && (
-          <StudentSidebar />
-        )}
-        {sidebarMode === 'detailed' && (
-          <Sidebar collapsible="icon">
-            <SidebarContent className="transition-all duration-300 ease-in-out">
+    <SidebarProvider>
+      <div className="flex min-h-dvh w-full">
+        <Sidebar collapsible="icon" className="border-r border-border">
+          <SidebarContent className="gap-2">
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/dashboard'}>
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Dashboard">
                       <Link href="/dashboard">
                         <BarChart3 className="size-5" />
                         <span>Dashboard</span>
                       </Link>
                     </SidebarMenuButton>
                     {weakAreas.length > 0 && (
-                      <SidebarMenuBadge className="bg-primary/10 rounded-full">
+                      <SidebarMenuBadge className="bg-primary/10 text-primary rounded-full">
                         {weakAreas.length}
                       </SidebarMenuBadge>
                     )}
@@ -201,7 +229,7 @@ function DashboardShellContent({
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/practice' || pathname?.startsWith('/practice/')}>
+                    <SidebarMenuButton asChild isActive={pathname === '/practice' || pathname?.startsWith('/practice/')} tooltip="Adaptive Practice">
                       <Link href="/practice">
                         <Brain className="size-5" />
                         <span>Adaptive Practice</span>
@@ -209,15 +237,49 @@ function DashboardShellContent({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/test' || pathname?.startsWith('/test/')}>
-                      <Link href="/test">
-                        <ClipboardList className="size-5" />
-                        <span>Mock Tests</span>
-                      </Link>
+                    <SidebarMenuButton 
+                      onClick={() => setIsTestMenuOpen(!isTestMenuOpen)}
+                      isActive={pathname === '/test' || pathname?.startsWith('/test/')}
+                      className="cursor-pointer"
+                      tooltip="Test"
+                    >
+                      <ClipboardList className="size-5" />
+                      <span>Test</span>
+                      <ChevronRight 
+                        className={`ml-auto size-4 transition-transform duration-200 ${isTestMenuOpen ? 'rotate-90' : ''}`} 
+                      />
                     </SidebarMenuButton>
+                    {isTestMenuOpen && (
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={pathname === '/test/mock' || pathname?.startsWith('/test/mock/')}>
+                            <Link href="/test/mock">
+                              <FileText className="size-4" />
+                              <span>Mock Tests</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={pathname === '/test/company-specific' || pathname?.startsWith('/test/company-specific/')}>
+                            <Link href="/test/company-specific">
+                              <Building2 className="size-4" />
+                              <span>Company Specific</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={pathname === '/test/custom' || pathname?.startsWith('/test/custom/')}>
+                            <Link href="/test/custom">
+                              <Upload className="size-4" />
+                              <span>Custom Test</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    )}
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/results' || pathname?.startsWith('/results/')}>
+                    <SidebarMenuButton asChild isActive={pathname === '/results' || pathname?.startsWith('/results/')} tooltip="My Results">
                       <Link href="/results">
                         <FileText className="size-5" />
                         <span>My Results</span>
@@ -225,7 +287,7 @@ function DashboardShellContent({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/analytics' || pathname?.startsWith('/analytics/')}>
+                    <SidebarMenuButton asChild isActive={pathname === '/analytics' || pathname?.startsWith('/analytics/')} tooltip="Analytics">
                       <Link href="/analytics">
                         <TrendingUp className="size-5" />
                         <span>Analytics</span>
@@ -241,7 +303,7 @@ function DashboardShellContent({
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/leaderboard' || pathname?.startsWith('/leaderboard/')}>
+                    <SidebarMenuButton asChild isActive={pathname === '/leaderboard' || pathname?.startsWith('/leaderboard/')} tooltip="Leaderboard">
                       <Link href="/leaderboard">
                         <Trophy className="size-5" />
                         <span>Leaderboard</span>
@@ -249,7 +311,7 @@ function DashboardShellContent({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/performance' || pathname?.startsWith('/performance/')}>
+                    <SidebarMenuButton asChild isActive={pathname === '/performance' || pathname?.startsWith('/performance/')} tooltip="Performance Tracking">
                       <Link href="/performance">
                         <Target className="size-5" />
                         <span>Performance Tracking</span>
@@ -257,7 +319,7 @@ function DashboardShellContent({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/achievements' || pathname?.startsWith('/achievements/')}>
+                    <SidebarMenuButton asChild isActive={pathname === '/achievements' || pathname?.startsWith('/achievements/')} tooltip="Achievements">
                       <Link href="/achievements">
                         <Award className="size-5" />
                         <span>Achievements</span>
@@ -273,59 +335,79 @@ function DashboardShellContent({
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                      <Link href="/profile">
-                        <User className="size-5" />
-                        <span>Profile</span>
-                      </Link>
+                    <SidebarMenuButton 
+                      onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+                      isActive={openProfileModal || openSettingsModal || openHelpModal}
+                      className="cursor-pointer"
+                      tooltip="Account"
+                    >
+                      <User className="size-5" />
+                      <span>Account</span>
+                      <ChevronRight 
+                        className={`ml-auto size-4 transition-transform duration-200 ${isAccountMenuOpen ? 'rotate-90' : ''}`} 
+                      />
                     </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                      <Link href="/settings">
-                        <Settings className="size-5" />
-                        <span>Settings</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                      <Link href="/help">
-                        <HelpCircle className="size-5" />
-                        <span>Help & Support</span>
-                      </Link>
-                    </SidebarMenuButton>
+                    {isAccountMenuOpen && (
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton 
+                            onClick={() => setOpenProfileModal(true)}
+                            isActive={openProfileModal}
+                          >
+                            <User className="size-4" />
+                            <span>Profile</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton 
+                            onClick={() => setOpenSettingsModal(true)}
+                            isActive={openSettingsModal}
+                          >
+                            <Settings className="size-4" />
+                            <span>Settings</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton 
+                            onClick={() => setOpenHelpModal(true)}
+                            isActive={openHelpModal}
+                          >
+                            <HelpCircle className="size-4" />
+                            <span>Help & Support</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    )}
                   </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            </SidebarContent>
-          </Sidebar>
-        )}
+          </SidebarContent>
+          <SidebarRail />
+        </Sidebar>
 
-        <div className="flex flex-1 flex-col">
+        <SidebarInset>
           <header className="bg-card sticky top-0 z-50 border-b border-border">
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-2 sm:px-6">
               <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={cycleSidebar}
-                  className="size-7 [&_svg]:!size-5 transition-all duration-200"
-                  title={getSidebarButtonTitle()}
-                >
-                  <PanelLeftIcon className="size-5" />
-                </Button>
-                <Separator orientation="vertical" className="hidden !h-4 sm:block" />
+                <SidebarTrigger className="size-7 [&_svg]:!size-5" />
                 <Breadcrumb className="hidden sm:block">
                   <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbLink href="/">Home</BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>Dashboard</BreadcrumbPage>
-                    </BreadcrumbItem>
+                    {breadcrumbItems.map((item, index) => {
+                      const isLast = index === breadcrumbItems.length - 1
+                      return (
+                        <React.Fragment key={index}>
+                          <BreadcrumbItem>
+                            {isLast || !item.href ? (
+                              <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                            ) : (
+                              <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+                            )}
+                          </BreadcrumbItem>
+                          {!isLast && <BreadcrumbSeparator />}
+                        </React.Fragment>
+                      )
+                    })}
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
@@ -337,7 +419,10 @@ function DashboardShellContent({
                   trigger={
                     <Button variant="ghost" size="icon" className="size-9.5">
                       <Avatar className="size-9.5 rounded-md">
-                        <AvatarImage src={profile?.avatar_url} alt={profile?.full_name || 'User'} />
+                        <AvatarImage 
+                          src={profile?.avatar_url || undefined} 
+                          alt={profile?.full_name || 'User'} 
+                        />
                         <AvatarFallback>{getInitials(profile?.full_name)}</AvatarFallback>
                       </Avatar>
                     </Button>
@@ -362,18 +447,24 @@ function DashboardShellContent({
               </p>
             </div>
           </footer>
-        </div>
-      </SidebarProvider>
-    </div>
+        </SidebarInset>
+      </div>
+      
+      {/* Account Modals */}
+      <AccountModals
+        openProfile={openProfileModal}
+        openSettings={openSettingsModal}
+        openHelp={openHelpModal}
+        onProfileClose={() => setOpenProfileModal(false)}
+        onSettingsClose={() => setOpenSettingsModal(false)}
+        onHelpClose={() => setOpenHelpModal(false)}
+      />
+    </SidebarProvider>
   )
 }
 
 export function DashboardShell(props: DashboardShellProps) {
-  return (
-    <CustomSidebarProvider>
-      <DashboardShellContent {...props} />
-    </CustomSidebarProvider>
-  )
+  return <DashboardShellContent {...props} />
 }
 
 function ProfileDropdown({
@@ -394,7 +485,10 @@ function ProfileDropdown({
         <DropdownMenuLabel className="flex items-center gap-4 px-4 py-2.5 font-normal">
           <div className="relative">
             <Avatar className="size-10">
-              <AvatarImage src={profile?.avatar_url} alt={profile?.full_name || 'User'} />
+              <AvatarImage 
+                src={profile?.avatar_url || undefined} 
+                alt={profile?.full_name || 'User'} 
+              />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             <span className="ring-card absolute right-0 bottom-0 block size-2 rounded-full bg-green-600 ring-2" />
