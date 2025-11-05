@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Edit, Plus } from 'lucide-react'
+import { sanitizeSupabaseResult, extractRelationship } from '@/lib/supabase/utils'
 
 interface PageProps {
   params: Promise<{
@@ -17,18 +18,44 @@ export default async function ViewTestPage({ params }: PageProps) {
   const supabase = await createClient()
 
   // Fetch the test with questions
-  const { data: test, error } = await supabase
+  const { data: testRaw, error } = await supabase
     .from('tests')
     .select(`
       *,
       category:categories(name),
-      questions(id, question_text, question_type, difficulty, marks)
+      questions!questions_test_id_fkey(id, question_text, question_type, difficulty, marks)
     `)
     .eq('id', id)
     .single()
 
-  if (error || !test) {
+  if (error || !testRaw) {
     notFound()
+  }
+
+  // Sanitize test - filter out Supabase metadata from relationships
+  const category = extractRelationship(testRaw.category)
+  let questions = testRaw.questions
+  if (questions) {
+    if (Array.isArray(questions)) {
+      // Filter out metadata objects and sanitize each question
+      questions = questions.filter((q: any) => {
+        if (!q || typeof q !== 'object') return false
+        return !('cardinality' in q) && !('embedding' in q) && !('relationship' in q)
+      }).map((q: any) => sanitizeSupabaseResult(q))
+    } else if (typeof questions === 'object') {
+      // Check if it's metadata
+      if ('cardinality' in questions || 'embedding' in questions || 'relationship' in questions) {
+        questions = []
+      }
+    }
+  }
+
+  const test = {
+    ...testRaw,
+    category: category && typeof category === 'object' && 'name' in category 
+      ? { name: category.name } 
+      : null,
+    questions: questions || [],
   }
 
   return (

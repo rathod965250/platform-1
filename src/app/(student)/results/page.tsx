@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
+import { sanitizeSupabaseResult, extractRelationship } from '@/lib/supabase/utils'
 import Link from 'next/link'
 import { Clock, Trophy, TrendingUp, Calendar } from 'lucide-react'
 
@@ -121,7 +122,7 @@ export default async function ResultsPage() {
   }) || []
 
   // Fetch adaptive states for mastery levels
-  const { data: adaptiveStates } = await supabase
+  const { data: adaptiveStatesRaw } = await supabase
     .from('adaptive_state')
     .select(`
       *,
@@ -129,9 +130,20 @@ export default async function ResultsPage() {
     `)
     .eq('user_id', user.id)
 
+  // Sanitize adaptiveStates - filter out Supabase metadata
+  const adaptiveStates = sanitizeSupabaseResult(adaptiveStatesRaw || []).map((state: any) => {
+    const category = extractRelationship(state.category)
+    return {
+      ...state,
+      category: category && typeof category === 'object' && 'name' in category 
+        ? { name: category.name } 
+        : null,
+    }
+  })
+
   // Build mastery levels map
   const masteryLevels: Record<string, number> = {}
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates.forEach((state: any) => {
     if (state.category?.name) {
       const mastery = typeof state.mastery_score === 'number'
         ? state.mastery_score
@@ -141,7 +153,7 @@ export default async function ResultsPage() {
   })
 
   // Fetch user metrics for weak areas calculation
-  const { data: allUserMetrics } = await supabase
+  const { data: allUserMetricsRaw } = await supabase
     .from('user_metrics')
     .select(`
       is_correct,
@@ -154,12 +166,45 @@ export default async function ResultsPage() {
     .eq('user_id', user.id)
     .limit(5000)
 
+  // Sanitize user metrics - filter out Supabase metadata from nested relationships
+  const allUserMetrics = sanitizeSupabaseResult(allUserMetricsRaw || []).map((metric: any) => {
+    const question = extractRelationship(metric.question)
+    if (question && typeof question === 'object') {
+      const subcategory = extractRelationship(question.subcategory)
+      if (subcategory && typeof subcategory === 'object') {
+        const category = extractRelationship(subcategory.category)
+        return {
+          ...metric,
+          question: {
+            subcategory: {
+              category: category && typeof category === 'object' && 'id' in category
+                ? { id: category.id, name: category.name }
+                : null,
+            },
+          },
+        }
+      }
+      return {
+        ...metric,
+        question: {
+          subcategory: subcategory && typeof subcategory === 'object'
+            ? subcategory
+            : null,
+        },
+      }
+    }
+    return {
+      ...metric,
+      question: question && typeof question === 'object' ? question : null,
+    }
+  })
+
   // Calculate category-wise performance for weak areas
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
-  allUserMetrics?.forEach((metric) => {
+  allUserMetrics.forEach((metric) => {
     const category = metric.question?.subcategory?.category
-    if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category) {
+    if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category && !('cardinality' in category)) {
       const categoryName = String(category.name)
       const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }
       current.total += 1

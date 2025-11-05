@@ -51,7 +51,7 @@ export function IntegrationsSection() {
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
             Why CrackAtom Works
           </h2>
-          <p className="text-base md:text-lg text-foreground/70 max-w-3xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-foreground/70 max-w-3xl mx-auto">
             Four powerful features designed to give you the edge in placement exams
           </p>
         </div>
@@ -73,26 +73,26 @@ export function IntegrationsSection() {
                   animation: 'fadeInUp 0.6s ease-out forwards'
                 }}
               >
-                <CardHeader className="relative pb-3 p-4 md:p-5 flex-shrink-0">
-                  <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <CardHeader className="relative pb-2 p-4 md:p-5 flex-shrink-0">
+                  <div className="flex items-center justify-center gap-2.5 sm:gap-3 mb-2">
                     <div className={cn(
-                      'w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0',
+                      'w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0',
                       'transition-all duration-300 group-hover:scale-110 group-hover:rotate-3',
                       'group-hover:shadow-md',
                       feature.iconBg
                     )}>
                       <Icon className={cn('h-5 w-5 sm:h-6 sm:w-6 transition-all duration-300 group-hover:scale-110', feature.iconColor)} />
                     </div>
+                    <CardTitle className="text-lg sm:text-xl md:text-2xl font-bold text-foreground leading-tight">
+                      {feature.title}
+                    </CardTitle>
                   </div>
-                  <CardTitle className="text-base sm:text-lg md:text-xl font-bold text-foreground mb-2 leading-tight">
-                    {feature.title}
-                  </CardTitle>
-                  <p className="text-sm sm:text-base font-semibold text-primary mb-3 leading-tight">
+                  <p className="text-sm sm:text-base md:text-lg font-semibold text-primary mb-0 leading-tight text-center">
                     {feature.subtitle}
                   </p>
                 </CardHeader>
-                <CardContent className="relative p-4 md:p-5 pt-0 flex-grow flex flex-col">
-                  <CardDescription className="text-xs sm:text-sm md:text-base text-foreground/70 leading-relaxed line-clamp-4 flex-grow">
+                <CardContent className="relative p-4 md:p-5 pt-2 flex-grow flex flex-col">
+                  <CardDescription className="text-sm sm:text-base md:text-lg text-foreground/70 leading-relaxed line-clamp-4 flex-grow text-center">
                     {feature.description}
                   </CardDescription>
                 </CardContent>

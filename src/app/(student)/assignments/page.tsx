@@ -43,7 +43,7 @@ export default async function AssignmentsPage() {
       test:tests(
         *,
         category:categories(name),
-        questions(count)
+        questions!questions_test_id_fkey(count)
       ),
       assigned_by_profile:profiles!student_assignments_assigned_by_fkey(full_name, email)
     `)
@@ -51,7 +51,13 @@ export default async function AssignmentsPage() {
     .order('assigned_at', { ascending: false })
 
   if (assignmentsError) {
-    console.error('Error fetching assignments:', assignmentsError)
+    console.error('Error fetching assignments:', {
+      message: assignmentsError.message,
+      details: assignmentsError.details,
+      hint: assignmentsError.hint,
+      code: assignmentsError.code,
+      error: assignmentsError
+    })
   }
 
   // Extract tests from assignments
@@ -257,117 +263,142 @@ export default async function AssignmentsPage() {
       masteryLevels={masteryLevels}
       adaptiveStates={adaptiveStates || []}
     >
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
+      <div className="min-h-screen bg-gradient-to-b from-background to-accent/5 py-4 sm:py-6 md:py-8">
+        <div className="container mx-auto px-4 sm:px-5 md:px-6 lg:px-8 max-w-7xl space-y-4 sm:space-y-5 md:space-y-6 lg:space-y-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans leading-tight break-words">
             Assignments
           </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-sans leading-relaxed">
             View and complete your assigned tests
           </p>
         </div>
 
         {/* Assignment Status Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{pendingAssignments.length}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-4 sm:mb-6 md:mb-8">
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <div className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans truncate">Pending</p>
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans break-words">{pendingAssignments.length}</p>
+                </div>
+                <Clock className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-yellow-500 flex-shrink-0" />
               </div>
-              <Clock className="h-8 w-8 text-yellow-500" />
             </div>
           </Card>
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">In Progress</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{inProgressAssignments.length}</p>
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <div className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans truncate">In Progress</p>
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans break-words">{inProgressAssignments.length}</p>
+                </div>
+                <AlertCircle className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-blue-500 flex-shrink-0" />
               </div>
-              <AlertCircle className="h-8 w-8 text-blue-500" />
             </div>
           </Card>
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Completed</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedAssignments.length}</p>
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <div className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans truncate">Completed</p>
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans break-words">{completedAssignments.length}</p>
+                </div>
+                <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-green-500 flex-shrink-0" />
               </div>
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
             </div>
           </Card>
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Overdue</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{overdueAssignments.length}</p>
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <div className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans truncate">Overdue</p>
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans break-words">{overdueAssignments.length}</p>
+                </div>
+                <AlertCircle className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-red-500 flex-shrink-0" />
               </div>
-              <AlertCircle className="h-8 w-8 text-red-500" />
             </div>
           </Card>
         </div>
 
         {/* Pending Assignments */}
         {pendingAssignments.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Clock className="h-6 w-6 text-yellow-500" />
-              Pending Assignments
+          <div className="mb-4 sm:mb-6 md:mb-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-3 sm:mb-4 md:mb-5 flex items-center gap-2 sm:gap-3 font-sans">
+              <Clock className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-yellow-500 flex-shrink-0" />
+              <span className="truncate">Pending Assignments</span>
             </h2>
-            <div className="grid gap-4">
+            <div className="grid gap-3 sm:gap-4 md:gap-5">
               {pendingAssignments.map((test) => (
-                <Card key={test.id} className="p-6 hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                          {test.title}
-                        </h3>
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-400">
-                          Pending
-                        </Badge>
-                      </div>
-                      {test.description && (
-                        <p className="text-gray-600 dark:text-gray-400 mb-3">
-                          {test.description}
-                        </p>
-                      )}
-                      {test.assignment?.instructions && (
-                        <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                          <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">Instructions:</p>
-                          <p className="text-sm text-blue-800 dark:text-blue-400">{test.assignment.instructions}</p>
+                <Card key={test.id} className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md border-l-4 border-l-yellow-500">
+                  <div className="p-4 sm:p-5 md:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-5 md:gap-6">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-3.5 md:mb-4 flex-wrap">
+                          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground break-words font-sans">
+                            {test.title}
+                          </h3>
+                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-2 border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-400 text-xs sm:text-sm md:text-base font-medium px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 font-sans shrink-0">
+                            Pending
+                          </Badge>
                         </div>
-                      )}
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        {test.category && (
-                          <span>📚 {test.category.name}</span>
+                        {test.description && (
+                          <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-3 sm:mb-3.5 md:mb-4 font-sans leading-relaxed break-words">
+                            {test.description}
+                          </p>
                         )}
-                        <span>⏱️ {test.duration_minutes} mins</span>
-                        <span>📝 {test.questions?.[0]?.count || 0} questions</span>
-                        <span>💯 {test.total_marks} marks</span>
-                        {test.negative_marking && (
-                          <span className="text-red-600">❌ Negative Marking</span>
+                        {test.assignment?.instructions && (
+                          <div className="mb-3 sm:mb-3.5 md:mb-4 p-3 sm:p-3.5 md:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-200 dark:border-blue-800/30">
+                            <p className="text-xs sm:text-sm md:text-base font-semibold text-blue-900 dark:text-blue-300 mb-1.5 sm:mb-2 font-sans">Instructions:</p>
+                            <p className="text-xs sm:text-sm md:text-base text-blue-800 dark:text-blue-400 font-sans leading-relaxed break-words">{test.assignment.instructions}</p>
+                          </div>
                         )}
-                      </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-500 mt-2">
-                        {test.assignment?.due_date && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            Due: {new Date(test.assignment.due_date).toLocaleDateString()}
+                        <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm md:text-base text-muted-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans">
+                          {test.category && (
+                            <span className="flex items-center gap-1.5 sm:gap-2">
+                              <span>📚</span>
+                              <span className="break-words">{test.category.name}</span>
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>⏱️</span>
+                            <span>{test.duration_minutes} mins</span>
                           </span>
-                        )}
-                        {test.assignment?.assigned_by && (
-                          <span>Assigned by: {test.assignment.assigned_by.full_name || test.assignment.assigned_by.email}</span>
-                        )}
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>📝</span>
+                            <span>{test.questions?.[0]?.count || 0} questions</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>💯</span>
+                            <span>{test.total_marks} marks</span>
+                          </span>
+                          {test.negative_marking && (
+                            <span className="flex items-center gap-1.5 sm:gap-2 text-destructive font-semibold">
+                              <span>❌</span>
+                              <span>Negative Marking</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                          {test.assignment?.due_date && (
+                            <span className="flex items-center gap-1.5 sm:gap-2">
+                              <Calendar className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 flex-shrink-0" />
+                              <span>Due: {new Date(test.assignment.due_date).toLocaleDateString()}</span>
+                            </span>
+                          )}
+                          {test.assignment?.assigned_by && (
+                            <span className="break-words">Assigned by: {test.assignment.assigned_by.full_name || test.assignment.assigned_by.email}</span>
+                          )}
+                        </div>
                       </div>
+                      <Link href={`/test/${test.id}/instructions`} className="shrink-0">
+                        <Button className="w-full sm:w-auto text-xs sm:text-sm md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-4 sm:px-6 md:px-8 shadow-md hover:shadow-lg transition-all duration-200">
+                          Start Assignment
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href={`/test/${test.id}/instructions`}>
-                      <Button>
-                        Start Assignment
-                      </Button>
-                    </Link>
                   </div>
                 </Card>
               ))}
@@ -377,35 +408,46 @@ export default async function AssignmentsPage() {
 
         {/* In Progress Assignments */}
         {inProgressAssignments.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <AlertCircle className="h-6 w-6 text-blue-500" />
-              In Progress
+          <div className="mb-4 sm:mb-6 md:mb-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-3 sm:mb-4 md:mb-5 flex items-center gap-2 sm:gap-3 font-sans">
+              <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-blue-500 flex-shrink-0" />
+              <span className="truncate">In Progress</span>
             </h2>
-            <div className="grid gap-4">
+            <div className="grid gap-3 sm:gap-4 md:gap-5">
               {inProgressAssignments.map((test) => (
-                <Card key={test.id} className="p-6 hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                          {test.title}
-                        </h3>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/20 dark:text-blue-400">
-                          In Progress
-                        </Badge>
+                <Card key={test.id} className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md border-l-4 border-l-blue-500">
+                  <div className="p-4 sm:p-5 md:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-5 md:gap-6">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-3.5 md:mb-4 flex-wrap">
+                          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground break-words font-sans">
+                            {test.title}
+                          </h3>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-2 border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 text-xs sm:text-sm md:text-base font-medium px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 font-sans shrink-0">
+                            In Progress
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>⏱️</span>
+                            <span>{test.duration_minutes} mins</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>📝</span>
+                            <span>{test.questions?.[0]?.count || 0} questions</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>💯</span>
+                            <span>{test.total_marks} marks</span>
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-                        <span>⏱️ {test.duration_minutes} mins</span>
-                        <span>📝 {test.questions?.[0]?.count || 0} questions</span>
-                        <span>💯 {test.total_marks} marks</span>
-                      </div>
+                      <Link href={`/test/${test.id}/instructions`} className="shrink-0">
+                        <Button className="w-full sm:w-auto text-xs sm:text-sm md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-4 sm:px-6 md:px-8 shadow-md hover:shadow-lg transition-all duration-200">
+                          Continue
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href={`/test/${test.id}/instructions`}>
-                      <Button>
-                        Continue
-                      </Button>
-                    </Link>
                   </div>
                 </Card>
               ))}
@@ -415,37 +457,47 @@ export default async function AssignmentsPage() {
 
         {/* Overdue Assignments */}
         {overdueAssignments.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <AlertCircle className="h-6 w-6 text-red-500" />
-              Overdue Assignments
+          <div className="mb-4 sm:mb-6 md:mb-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-3 sm:mb-4 md:mb-5 flex items-center gap-2 sm:gap-3 font-sans">
+              <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-red-500 flex-shrink-0" />
+              <span className="truncate">Overdue Assignments</span>
             </h2>
-            <div className="grid gap-4">
+            <div className="grid gap-3 sm:gap-4 md:gap-5">
               {overdueAssignments.map((test) => (
-                <Card key={test.id} className="p-6 hover:shadow-lg transition-shadow border-l-4 border-l-red-500">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                          {test.title}
-                        </h3>
-                        <Badge variant="destructive">Overdue</Badge>
+                <Card key={test.id} className="bg-card border-2 border-destructive/30 bg-destructive/5 hover:border-destructive/50 transition-all duration-300 hover:shadow-md border-l-4 border-l-red-500">
+                  <div className="p-4 sm:p-5 md:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-5 md:gap-6">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-3.5 md:mb-4 flex-wrap">
+                          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground break-words font-sans">
+                            {test.title}
+                          </h3>
+                          <Badge variant="destructive" className="text-xs sm:text-sm md:text-base font-medium px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 font-sans shrink-0">
+                            Overdue
+                          </Badge>
+                        </div>
+                        {test.assignment?.due_date && (
+                          <p className="text-xs sm:text-sm md:text-base text-destructive mb-2 sm:mb-2.5 md:mb-3 font-semibold font-sans">
+                            Was due on: {new Date(test.assignment.due_date).toLocaleDateString()}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>⏱️</span>
+                            <span>{test.duration_minutes} mins</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>📝</span>
+                            <span>{test.questions?.[0]?.count || 0} questions</span>
+                          </span>
+                        </div>
                       </div>
-                      {test.assignment?.due_date && (
-                        <p className="text-sm text-red-600 dark:text-red-400 mb-2">
-                          Was due on: {new Date(test.assignment.due_date).toLocaleDateString()}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-                        <span>⏱️ {test.duration_minutes} mins</span>
-                        <span>📝 {test.questions?.[0]?.count || 0} questions</span>
-                      </div>
+                      <Link href={`/test/${test.id}/instructions`} className="shrink-0">
+                        <Button variant="destructive" className="w-full sm:w-auto text-xs sm:text-sm md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-4 sm:px-6 md:px-8 shadow-md hover:shadow-lg transition-all duration-200">
+                          Complete Now
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href={`/test/${test.id}/instructions`}>
-                      <Button variant="destructive">
-                        Complete Now
-                      </Button>
-                    </Link>
                   </div>
                 </Card>
               ))}
@@ -455,39 +507,47 @@ export default async function AssignmentsPage() {
 
         {/* Completed Assignments */}
         {completedAssignments.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
-              Completed
+          <div className="mb-4 sm:mb-6 md:mb-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-3 sm:mb-4 md:mb-5 flex items-center gap-2 sm:gap-3 font-sans">
+              <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-green-500 flex-shrink-0" />
+              <span className="truncate">Completed</span>
             </h2>
-            <div className="grid gap-4">
+            <div className="grid gap-3 sm:gap-4 md:gap-5">
               {completedAssignments.map((test) => (
-                <Card key={test.id} className="p-6 hover:shadow-lg transition-shadow border-l-4 border-l-green-500 opacity-75">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                          {test.title}
-                        </h3>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-400">
-                          Completed
-                        </Badge>
+                <Card key={test.id} className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md border-l-4 border-l-green-500 opacity-75">
+                  <div className="p-4 sm:p-5 md:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-5 md:gap-6">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-3.5 md:mb-4 flex-wrap">
+                          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground break-words font-sans">
+                            {test.title}
+                          </h3>
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-2 border-green-300 dark:bg-green-900/20 dark:text-green-400 text-xs sm:text-sm md:text-base font-medium px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 font-sans shrink-0">
+                            Completed
+                          </Badge>
+                        </div>
+                        {test.assignment?.completed_at && (
+                          <p className="text-xs sm:text-sm md:text-base text-muted-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans">
+                            Completed on: {new Date(test.assignment.completed_at).toLocaleDateString()}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>📝</span>
+                            <span>{test.questions?.[0]?.count || 0} questions</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 sm:gap-2">
+                            <span>💯</span>
+                            <span>{test.total_marks} marks</span>
+                          </span>
+                        </div>
                       </div>
-                      {test.assignment?.completed_at && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                          Completed on: {new Date(test.assignment.completed_at).toLocaleDateString()}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-                        <span>📝 {test.questions?.[0]?.count || 0} questions</span>
-                        <span>💯 {test.total_marks} marks</span>
-                      </div>
+                      <Link href={`/test/${test.id}/results`} className="shrink-0">
+                        <Button variant="outline" className="w-full sm:w-auto text-xs sm:text-sm md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-4 sm:px-6 md:px-8 border-2 border-border hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-all duration-200">
+                          View Results
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href={`/test/${test.id}/results`}>
-                      <Button variant="outline">
-                        View Results
-                      </Button>
-                    </Link>
                   </div>
                 </Card>
               ))}
@@ -497,14 +557,16 @@ export default async function AssignmentsPage() {
 
         {/* No Assignments Available */}
         {assignedTests.length === 0 && (
-          <Card className="p-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-              No assignments available yet
-            </h3>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Your admin will assign tests to you. Please check back later.
-            </p>
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <div className="p-8 sm:p-10 md:p-12 text-center">
+              <FileText className="mx-auto h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 text-muted-foreground opacity-50 mb-4 sm:mb-5 md:mb-6" />
+              <h3 className="text-base sm:text-lg md:text-xl font-bold text-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans">
+                No assignments available yet
+              </h3>
+              <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-sans leading-relaxed">
+                Your admin will assign tests to you. Please check back later.
+              </p>
+            </div>
           </Card>
         )}
         </div>

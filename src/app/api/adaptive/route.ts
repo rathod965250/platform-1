@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
     
     try {
-      const response = await fetch(functionUrl, {
+      const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -40,7 +40,33 @@ export async function POST(request: NextRequest) {
           user_id: user.id,
         }),
         signal: controller.signal,
-      })
+      }
+
+      // Add better error handling for fetch
+      let response: Response
+      try {
+        response = await fetch(functionUrl, fetchOptions)
+      } catch (fetchError: any) {
+        // Handle network errors more gracefully
+        if (fetchError.name === 'TypeError' && fetchError.message === 'Failed to fetch') {
+          console.error('❌ Network error - Failed to fetch from Supabase')
+          console.error('URL:', functionUrl)
+          console.error('Possible causes:')
+          console.error('1. Supabase project is paused or deleted')
+          console.error('2. Network connectivity issues')
+          console.error('3. Incorrect Supabase URL in environment variables')
+          console.error('4. CORS configuration issues')
+          
+          return NextResponse.json(
+            { 
+              error: 'Network error: Unable to connect to Supabase. Please check your internet connection and Supabase project status.',
+              details: 'Failed to fetch from Supabase. Verify your NEXT_PUBLIC_SUPABASE_URL is correct and your project is active.'
+            },
+            { status: 503 }
+          )
+        }
+        throw fetchError // Re-throw other errors
+      }
       
       clearTimeout(timeoutId)
 

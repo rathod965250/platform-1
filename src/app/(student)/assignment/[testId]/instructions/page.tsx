@@ -31,7 +31,7 @@ export default async function TestInstructionsPage({ params }: PageProps) {
     .select(`
       *,
       category:categories(name),
-      questions(id)
+      questions!questions_test_id_fkey(id)
     `)
     .eq('id', testId)
     .eq('is_published', true)

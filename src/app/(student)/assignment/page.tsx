@@ -41,7 +41,7 @@ export default async function TestSelectionPage() {
     .select(`
       *,
       category:categories(name),
-      questions(count)
+      questions!questions_test_id_fkey(count)
     `)
     .eq('is_published', true)
     .order('created_at', { ascending: false })

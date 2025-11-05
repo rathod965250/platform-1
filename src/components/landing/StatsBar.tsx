@@ -171,7 +171,7 @@ export function StatsBar() {
                   {stat.label}
                 </p>
                 {!isLoading && (
-                  <p className="text-xs text-foreground/50 mt-1">
+                  <p className="text-sm text-foreground/50 mt-1">
                     {stat.suffix}
                   </p>
                 )}

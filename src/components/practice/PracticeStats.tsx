@@ -46,14 +46,14 @@ export function PracticeStats({ totalQuestions, accuracy, streak, mastery, isLoa
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="bg-card border-border">
-            <CardContent className="p-6">
+          <Card key={i} className="bg-card border-2 border-border">
+            <CardContent className="p-4 sm:p-5 md:p-6">
               <div className="space-y-3">
-                <Skeleton className="h-8 w-8 rounded-lg" />
-                <Skeleton className="h-6 w-24" />
-                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 rounded-lg" />
+                <Skeleton className="h-4 sm:h-5 w-24 sm:w-28" />
+                <Skeleton className="h-6 sm:h-8 md:h-10 w-16 sm:w-20" />
               </div>
             </CardContent>
           </Card>
@@ -63,19 +63,23 @@ export function PracticeStats({ totalQuestions, accuracy, streak, mastery, isLoa
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
       {stats.map((stat) => {
         const Icon = stat.icon
         return (
-          <Card key={stat.label} className="bg-card border-border hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground mb-2">{stat.label}</p>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+          <Card key={stat.label} className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <CardContent className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-start justify-between gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans truncate">
+                    {stat.label}
+                  </p>
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans break-words">
+                    {stat.value}
+                  </p>
                 </div>
-                <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                  <Icon className={`h-6 w-6 ${stat.color}`} />
+                <div className={`p-2.5 sm:p-3 md:p-3.5 rounded-lg sm:rounded-xl ${stat.bgColor} shrink-0`}>
+                  <Icon className={`h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 ${stat.color}`} />
                 </div>
               </div>
             </CardContent>

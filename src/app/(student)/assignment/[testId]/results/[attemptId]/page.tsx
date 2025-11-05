@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { TestResults } from '@/components/test/TestResults'
+import { sanitizeSupabaseResult, extractRelationship } from '@/lib/supabase/utils'
 
 export const metadata = {
   title: 'Test Results',
@@ -25,7 +26,7 @@ export default async function TestResultsPage({ params }: PageProps) {
   }
 
   // Fetch test attempt with user profile
-  const { data: attempt, error: attemptError } = await supabase
+  const { data: attemptRaw, error: attemptError } = await supabase
     .from('test_attempts')
     .select(`
       *,
@@ -35,8 +36,17 @@ export default async function TestResultsPage({ params }: PageProps) {
     .eq('user_id', user.id)
     .single()
 
-  if (attemptError || !attempt) {
+  if (attemptError || !attemptRaw) {
     notFound()
+  }
+
+  // Sanitize attempt - extract user relationship safely
+  const userProfile = extractRelationship(attemptRaw.user)
+  const attempt = {
+    ...attemptRaw,
+    user: userProfile && typeof userProfile === 'object' && 'full_name' in userProfile
+      ? { full_name: userProfile.full_name, email: userProfile.email }
+      : null,
   }
 
   // Check if test is submitted
@@ -56,7 +66,7 @@ export default async function TestResultsPage({ params }: PageProps) {
   }
 
   // Fetch all attempt answers with question details
-  const { data: answers, error: answersError } = await supabase
+  const { data: answersRaw, error: answersError } = await supabase
     .from('attempt_answers')
     .select(`
       *,
@@ -88,6 +98,42 @@ export default async function TestResultsPage({ params }: PageProps) {
   if (answersError) {
     console.error('Error fetching answers:', answersError)
   }
+
+  // Sanitize answers - filter out Supabase metadata from nested relationships
+  const answers = sanitizeSupabaseResult(answersRaw || []).map((answer: any) => {
+    const question = extractRelationship(answer.question)
+    if (question && typeof question === 'object') {
+      const subcategory = extractRelationship(question.subcategory)
+      if (subcategory && typeof subcategory === 'object') {
+        const category = extractRelationship(subcategory.category)
+        return {
+          ...answer,
+          question: {
+            ...question,
+            subcategory: {
+              ...subcategory,
+              category: category && typeof category === 'object' && 'id' in category
+                ? { id: category.id, name: category.name, slug: category.slug }
+                : null,
+            },
+          },
+        }
+      }
+      return {
+        ...answer,
+        question: {
+          ...question,
+          subcategory: subcategory && typeof subcategory === 'object'
+            ? { id: subcategory.id, name: subcategory.name, slug: subcategory.slug }
+            : null,
+        },
+      }
+    }
+    return {
+      ...answer,
+      question: question && typeof question === 'object' ? question : null,
+    }
+  })
 
   // Calculate statistics for all attempts on this test
   const { data: allAttempts } = await supabase

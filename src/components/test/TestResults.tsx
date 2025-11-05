@@ -87,7 +87,22 @@ export function TestResults({
   const categoryStats: Record<string, CategoryStats> = {}
 
   answers.forEach((answer) => {
-    const categoryName = answer.question?.subcategory?.category?.name || 'Other'
+    // Safely extract category name, handling nested relationships
+    let categoryName = 'Other'
+    if (answer.question) {
+      const question = answer.question
+      if (question.subcategory) {
+        const subcategory = Array.isArray(question.subcategory) ? question.subcategory[0] : question.subcategory
+        if (subcategory && typeof subcategory === 'object' && !('cardinality' in subcategory)) {
+          if (subcategory.category) {
+            const category = Array.isArray(subcategory.category) ? subcategory.category[0] : subcategory.category
+            if (category && typeof category === 'object' && 'name' in category && !('cardinality' in category)) {
+              categoryName = String(category.name)
+            }
+          }
+        }
+      }
+    }
 
     if (!categoryStats[categoryName]) {
       categoryStats[categoryName] = {
@@ -638,7 +653,18 @@ export function TestResults({
                               <Badge variant="outline">
                                 Q{answers.findIndex((a) => a.id === answer.id) + 1}
                               </Badge>
-                              <Badge variant="secondary">{question?.subcategory?.category?.name}</Badge>
+                              <Badge variant="secondary">
+                                {(() => {
+                                  // Safely extract category name
+                                  if (!question?.subcategory) return 'Other'
+                                  const subcategory = Array.isArray(question.subcategory) ? question.subcategory[0] : question.subcategory
+                                  if (!subcategory || typeof subcategory !== 'object' || 'cardinality' in subcategory) return 'Other'
+                                  if (!subcategory.category) return 'Other'
+                                  const category = Array.isArray(subcategory.category) ? subcategory.category[0] : subcategory.category
+                                  if (!category || typeof category !== 'object' || 'name' in category === false || 'cardinality' in category) return 'Other'
+                                  return String(category.name)
+                                })()}
+                              </Badge>
                               <Badge
                                 variant={
                                   question?.difficulty === 'easy'

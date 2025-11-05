@@ -9,18 +9,18 @@ import {
   Trophy,
   Target,
   TrendingUp,
-  User,
   Settings,
   LogOut,
   ClipboardList,
   FileText,
   Award,
-  HelpCircle,
   Building2,
   Upload,
   ChevronRight,
   Clock,
   BookOpen,
+  MessageSquare,
+  Bell,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -59,7 +59,6 @@ import {
   SidebarInset,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import { AccountModals } from './AccountModals'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
@@ -104,10 +103,8 @@ function DashboardShellContent({
   const router = useRouter()
   const pathname = usePathname()
   const [isTestMenuOpen, setIsTestMenuOpen] = useState(false)
-  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
-  const [openProfileModal, setOpenProfileModal] = useState(false)
-  const [openSettingsModal, setOpenSettingsModal] = useState(false)
-  const [openHelpModal, setOpenHelpModal] = useState(false)
+  const [unreadRepliesCount, setUnreadRepliesCount] = useState(0)
+  const [recentReplies, setRecentReplies] = useState<any[]>([])
 
   // Auto-expand test menu when on test page
   React.useEffect(() => {
@@ -116,12 +113,79 @@ function DashboardShellContent({
     }
   }, [pathname])
 
-  // Auto-expand account menu when modals are open
+  // Fetch unread replies count
   React.useEffect(() => {
-    if (openProfileModal || openSettingsModal || openHelpModal) {
-      setIsAccountMenuOpen(true)
+    const fetchUnreadReplies = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      // Get user profile to get email
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', user.id)
+        .single()
+
+      if (!profile?.email) return
+
+      // Fetch messages with replies
+      const { data: messages } = await supabase
+        .from('contact_messages')
+        .select('id, name, email, message, reply, replied_at, created_at, status')
+        .or(`email.eq.${profile.email.toLowerCase()},user_id.eq.${user.id}`)
+        .not('reply', 'is', null)
+        .order('replied_at', { ascending: false })
+        .limit(10)
+
+      if (messages) {
+        // Get viewed message IDs from localStorage
+        const viewedMessages = JSON.parse(
+          localStorage.getItem('viewed_replies') || '[]'
+        ) as string[]
+
+        // Filter out messages user has already viewed
+        const unreadMessages = messages.filter(
+          (msg) => !viewedMessages.includes(msg.id)
+        )
+
+        setUnreadRepliesCount(unreadMessages.length)
+        setRecentReplies(messages.slice(0, 5))
+      }
     }
-  }, [openProfileModal, openSettingsModal, openHelpModal])
+
+    fetchUnreadReplies()
+
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchUnreadReplies, 30000)
+    
+    // Listen for message viewed events
+    const handleMessageViewed = () => {
+      fetchUnreadReplies()
+    }
+    window.addEventListener('messageViewed', handleMessageViewed)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('messageViewed', handleMessageViewed)
+    }
+  }, [])
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+
+    if (minutes < 1) return 'Just now'
+    if (minutes < 60) return `${minutes}m ago`
+    if (hours < 24) return `${hours}h ago`
+    if (days < 7) return `${days}d ago`
+    return date.toLocaleDateString()
+  }
 
 
   // Generate breadcrumb based on current pathname
@@ -208,45 +272,53 @@ function DashboardShellContent({
   return (
     <SidebarProvider>
       <div className="flex min-h-dvh w-full">
-        <Sidebar collapsible="icon" className="border-r border-border">
-          <SidebarContent className="gap-2">
-            <SidebarGroup>
+        <Sidebar collapsible="icon" className="border-r border-border bg-sidebar">
+          <SidebarContent className="gap-3 sm:gap-4 p-3 sm:p-4">
+            <SidebarGroup className="group-data-[collapsible=icon]:pl-1">
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Dashboard">
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Dashboard" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/dashboard">
-                        <BarChart3 className="size-5" />
-                        <span>Dashboard</span>
+                        <BarChart3 className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Dashboard</span>
                       </Link>
                     </SidebarMenuButton>
-                    {weakAreas.length > 0 && (
-                      <SidebarMenuBadge className="bg-primary/10 text-primary rounded-full">
+                    {weakAreas.length > 0 && pathname === '/dashboard' && (
+                      <SidebarMenuBadge className="bg-primary/10 text-primary rounded-full group-data-[collapsible=icon]:hidden">
                         {weakAreas.length}
                       </SidebarMenuBadge>
                     )}
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/messages' || pathname?.startsWith('/dashboard/messages/')} tooltip="My Messages" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
+                      <Link href="/dashboard/messages">
+                        <MessageSquare className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">My Messages</span>
+                      </Link>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
 
-            <SidebarGroup>
-              <SidebarGroupLabel>Practice</SidebarGroupLabel>
+            <SidebarGroup className="group-data-[collapsible=icon]:pl-1">
+              <SidebarGroupLabel className="text-xs sm:text-sm md:text-base font-semibold text-sidebar-foreground/80 dark:text-sidebar-foreground/70 px-3 sm:px-4 py-2 sm:py-2.5 font-sans group-data-[collapsible=icon]:hidden">Practice</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/practice' || pathname?.startsWith('/practice/')} tooltip="Adaptive Practice">
+                    <SidebarMenuButton asChild isActive={pathname === '/practice' || pathname?.startsWith('/practice/')} tooltip="Adaptive Practice" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/practice">
-                        <Brain className="size-5" />
-                        <span>Adaptive Practice</span>
+                        <Brain className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Adaptive Practice</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/assignments' || pathname?.startsWith('/assignments/')} tooltip="Assignments">
+                    <SidebarMenuButton asChild isActive={pathname === '/assignments' || pathname?.startsWith('/assignments/')} tooltip="Assignments" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/assignments">
-                        <BookOpen className="size-5" />
-                        <span>Assignments</span>
+                        <BookOpen className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Assignments</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -254,38 +326,38 @@ function DashboardShellContent({
                     <SidebarMenuButton 
                       onClick={() => setIsTestMenuOpen(!isTestMenuOpen)}
                       isActive={pathname === '/test' || pathname?.startsWith('/test/')}
-                      className="cursor-pointer"
+                      className="cursor-pointer text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
                       tooltip="Test"
                     >
-                      <ClipboardList className="size-5" />
-                      <span>Test</span>
+                      <ClipboardList className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                      <span className="font-sans flex-1 min-w-0">Test</span>
                       <ChevronRight 
-                        className={`ml-auto size-4 transition-transform duration-200 ${isTestMenuOpen ? 'rotate-90' : ''}`} 
+                        className={`ml-auto size-4 sm:size-4 md:size-5 transition-transform duration-200 shrink-0 group-data-[collapsible=icon]:hidden ${isTestMenuOpen ? 'rotate-90' : ''}`} 
                       />
                     </SidebarMenuButton>
                     {isTestMenuOpen && (
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname === '/test/mock' || pathname?.startsWith('/test/mock/')}>
+                          <SidebarMenuSubButton asChild isActive={pathname === '/test/mock' || pathname?.startsWith('/test/mock/')} className="text-xs sm:text-sm md:text-base font-medium min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary font-sans [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:justify-center">
                             <Link href="/test/mock">
-                              <FileText className="size-4" />
-                              <span>Mock Tests</span>
+                              <FileText className="size-4 sm:size-4 md:size-5 shrink-0 group-data-[collapsible=icon]:size-4" />
+                              <span className="flex-1 min-w-0">Mock Tests</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname === '/test/company-specific' || pathname?.startsWith('/test/company-specific/')}>
+                          <SidebarMenuSubButton asChild isActive={pathname === '/test/company-specific' || pathname?.startsWith('/test/company-specific/')} className="text-xs sm:text-sm md:text-base font-medium min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary font-sans [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:justify-center">
                             <Link href="/test/company-specific">
-                              <Building2 className="size-4" />
-                              <span>Company Specific</span>
+                              <Building2 className="size-4 sm:size-4 md:size-5 shrink-0 group-data-[collapsible=icon]:size-4" />
+                              <span className="flex-1 min-w-0">Company Specific</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname === '/test/custom' || pathname?.startsWith('/test/custom/')}>
+                          <SidebarMenuSubButton asChild isActive={pathname === '/test/custom' || pathname?.startsWith('/test/custom/')} className="text-xs sm:text-sm md:text-base font-medium min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary font-sans [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:justify-center">
                             <Link href="/test/custom">
-                              <Upload className="size-4" />
-                              <span>Custom Test</span>
+                              <Upload className="size-4 sm:size-4 md:size-5 shrink-0 group-data-[collapsible=icon]:size-4" />
+                              <span className="flex-1 min-w-0">Custom Test</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -293,18 +365,18 @@ function DashboardShellContent({
                     )}
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/results' || pathname?.startsWith('/results/')} tooltip="My Results">
+                    <SidebarMenuButton asChild isActive={pathname === '/results' || pathname?.startsWith('/results/')} tooltip="My Results" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/results">
-                        <FileText className="size-5" />
-                        <span>My Results</span>
+                        <FileText className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">My Results</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/analytics' || pathname?.startsWith('/analytics/')} tooltip="Analytics">
+                    <SidebarMenuButton asChild isActive={pathname === '/analytics' || pathname?.startsWith('/analytics/')} tooltip="Analytics" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/analytics">
-                        <TrendingUp className="size-5" />
-                        <span>Analytics</span>
+                        <TrendingUp className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Analytics</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -312,39 +384,39 @@ function DashboardShellContent({
               </SidebarGroupContent>
             </SidebarGroup>
 
-            <SidebarGroup>
-              <SidebarGroupLabel>Progress</SidebarGroupLabel>
+            <SidebarGroup className="group-data-[collapsible=icon]:pl-1">
+              <SidebarGroupLabel className="text-xs sm:text-sm md:text-base font-semibold text-sidebar-foreground/80 dark:text-sidebar-foreground/70 px-3 sm:px-4 py-2 sm:py-2.5 font-sans group-data-[collapsible=icon]:hidden">Progress</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/leaderboard' || pathname?.startsWith('/leaderboard/')} tooltip="Leaderboard">
+                    <SidebarMenuButton asChild isActive={pathname === '/leaderboard' || pathname?.startsWith('/leaderboard/')} tooltip="Leaderboard" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/leaderboard">
-                        <Trophy className="size-5" />
-                        <span>Leaderboard</span>
+                        <Trophy className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Leaderboard</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/recent-activity' || pathname?.startsWith('/recent-activity/')} tooltip="Recent Activity">
+                    <SidebarMenuButton asChild isActive={pathname === '/recent-activity' || pathname?.startsWith('/recent-activity/')} tooltip="Recent Activity" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/recent-activity">
-                        <Clock className="size-5" />
-                        <span>Recent Activity</span>
+                        <Clock className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Recent Activity</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/performance' || pathname?.startsWith('/performance/')} tooltip="Performance Tracking">
+                    <SidebarMenuButton asChild isActive={pathname === '/performance' || pathname?.startsWith('/performance/')} tooltip="Performance Tracking" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/performance">
-                        <Target className="size-5" />
-                        <span>Performance Tracking</span>
+                        <Target className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Performance Tracking</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/achievements' || pathname?.startsWith('/achievements/')} tooltip="Achievements">
+                    <SidebarMenuButton asChild isActive={pathname === '/achievements' || pathname?.startsWith('/achievements/')} tooltip="Achievements" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">
                       <Link href="/achievements">
-                        <Award className="size-5" />
-                        <span>Achievements</span>
+                        <Award className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Achievements</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -352,54 +424,22 @@ function DashboardShellContent({
               </SidebarGroupContent>
             </SidebarGroup>
 
-            <SidebarGroup>
-              <SidebarGroupLabel>Account</SidebarGroupLabel>
+            <SidebarGroup className="group-data-[collapsible=icon]:pl-1">
+              <SidebarGroupLabel className="text-xs sm:text-sm md:text-base font-semibold text-sidebar-foreground/80 dark:text-sidebar-foreground/70 px-3 sm:px-4 py-2 sm:py-2.5 font-sans group-data-[collapsible=icon]:hidden">Account</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton 
-                      onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                      isActive={openProfileModal || openSettingsModal || openHelpModal}
-                      className="cursor-pointer"
-                      tooltip="Account"
+                      asChild
+                      isActive={pathname === '/settings' || pathname?.startsWith('/settings/')}
+                      tooltip="Settings"
+                      className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
                     >
-                      <User className="size-5" />
-                      <span>Account</span>
-                      <ChevronRight 
-                        className={`ml-auto size-4 transition-transform duration-200 ${isAccountMenuOpen ? 'rotate-90' : ''}`} 
-                      />
+                      <Link href="/settings">
+                        <Settings className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Settings</span>
+                      </Link>
                     </SidebarMenuButton>
-                    {isAccountMenuOpen && (
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton 
-                            onClick={() => setOpenProfileModal(true)}
-                            isActive={openProfileModal}
-                          >
-                            <User className="size-4" />
-                            <span>Profile</span>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton 
-                            onClick={() => setOpenSettingsModal(true)}
-                            isActive={openSettingsModal}
-                          >
-                            <Settings className="size-4" />
-                            <span>Settings</span>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton 
-                            onClick={() => setOpenHelpModal(true)}
-                            isActive={openHelpModal}
-                          >
-                            <HelpCircle className="size-4" />
-                            <span>Help & Support</span>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      </SidebarMenuSub>
-                    )}
                   </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
@@ -434,6 +474,77 @@ function DashboardShellContent({
                 </Breadcrumb>
               </div>
               <div className="flex items-center gap-1.5">
+                {/* Notifications Bell */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative size-9.5">
+                      <Bell className="h-5 w-5" />
+                      {unreadRepliesCount > 0 && (
+                        <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                          {unreadRepliesCount > 9 ? '9+' : unreadRepliesCount}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80">
+                    <DropdownMenuLabel>
+                      <div className="flex items-center justify-between">
+                        <span>Notifications</span>
+                        {unreadRepliesCount > 0 && (
+                          <span className="text-xs text-red-600 dark:text-red-400">
+                            {unreadRepliesCount} new
+                          </span>
+                        )}
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {recentReplies.length === 0 ? (
+                      <>
+                        <DropdownMenuItem disabled>
+                          <span className="text-sm text-muted-foreground">No replies yet</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => router.push('/dashboard/messages')}
+                          className="text-center font-medium cursor-pointer"
+                        >
+                          View All Messages
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <>
+                        {recentReplies.map((message) => (
+                          <DropdownMenuItem
+                            key={message.id}
+                            className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                            onClick={() => router.push(`/dashboard/messages?message=${message.id}`)}
+                          >
+                            <div className="flex w-full items-center justify-between">
+                              <span className="font-medium text-foreground">
+                                Reply from Admin
+                              </span>
+                              <span className="h-2 w-2 rounded-full bg-green-500" />
+                            </div>
+                            <span className="text-xs text-muted-foreground line-clamp-1">
+                              {message.message.substring(0, 50)}...
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {message.replied_at ? formatDate(message.replied_at) : 'Recently'}
+                            </span>
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => router.push('/dashboard/messages')}
+                          className="text-center font-medium cursor-pointer"
+                        >
+                          View All Messages
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <ProfileDropdown
                   profile={profile}
                   initials={getInitials(profile?.full_name)}
@@ -471,16 +582,6 @@ function DashboardShellContent({
           </footer>
         </SidebarInset>
       </div>
-      
-      {/* Account Modals */}
-      <AccountModals
-        openProfile={openProfileModal}
-        openSettings={openSettingsModal}
-        openHelp={openHelpModal}
-        onProfileClose={() => setOpenProfileModal(false)}
-        onSettingsClose={() => setOpenSettingsModal(false)}
-        onHelpClose={() => setOpenHelpModal(false)}
-      />
     </SidebarProvider>
   )
 }
@@ -522,12 +623,6 @@ function ProfileDropdown({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem className="px-4 py-2.5 text-base" asChild>
-            <Link href="/profile">
-              <User className="mr-2 size-5 text-foreground" />
-              My Account
-            </Link>
-          </DropdownMenuItem>
           <DropdownMenuItem className="px-4 py-2.5 text-base" asChild>
             <Link href="/settings">
               <Settings className="mr-2 size-5 text-foreground" />

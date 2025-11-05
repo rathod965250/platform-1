@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { ActiveTestInterface } from '@/components/test/ActiveTestInterface'
+import { sanitizeSupabaseResult, extractRelationship } from '@/lib/supabase/utils'
 
 export const metadata = {
   title: 'Test In Progress',
@@ -42,11 +43,11 @@ export default async function ActiveTestPage({ params }: PageProps) {
   }
 
   // Fetch test with questions
-  const { data: test, error: testError } = await supabase
+  const { data: testRaw, error: testError } = await supabase
     .from('tests')
     .select(`
       *,
-      questions(
+      questions!questions_test_id_fkey(
         id,
         question_text,
         question_type,
@@ -62,12 +63,50 @@ export default async function ActiveTestPage({ params }: PageProps) {
     .eq('id', testId)
     .single()
 
-  if (testError || !test) {
+  if (testError || !testRaw) {
     notFound()
   }
 
-  // Sort questions by order
-  const questions = test.questions?.sort((a: any, b: any) => a.order - b.order) || []
+  // Sanitize test questions - filter out Supabase metadata
+  let questionsRaw = testRaw.questions
+  if (questionsRaw && Array.isArray(questionsRaw)) {
+    questionsRaw = questionsRaw.filter((q: any) => {
+      if (!q || typeof q !== 'object') return false
+      return !('cardinality' in q) && !('embedding' in q) && !('relationship' in q)
+    })
+  } else if (questionsRaw && typeof questionsRaw === 'object') {
+    if ('cardinality' in questionsRaw || 'embedding' in questionsRaw || 'relationship' in questionsRaw) {
+      questionsRaw = []
+    }
+  }
+
+  // Sanitize each question's nested relationships
+  const questions = (questionsRaw || []).map((question: any) => {
+    const subcategory = extractRelationship(question.subcategory)
+    if (subcategory && typeof subcategory === 'object') {
+      const category = extractRelationship(subcategory.category)
+      return {
+        ...question,
+        subcategory: {
+          name: subcategory.name,
+          category: category && typeof category === 'object' && 'name' in category
+            ? { name: category.name }
+            : null,
+        },
+      }
+    }
+    return {
+      ...question,
+      subcategory: subcategory && typeof subcategory === 'object'
+        ? { name: subcategory.name }
+        : null,
+    }
+  }).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+
+  const test = {
+    ...testRaw,
+    questions,
+  }
 
   // Fetch existing answers
   const { data: existingAnswers } = await supabase

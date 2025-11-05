@@ -228,82 +228,82 @@ export function DashboardContent({
       masteryLevels={masteryLevels}
       adaptiveStates={adaptiveStates}
     >
-      <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6 px-4 sm:px-5 md:px-6 lg:px-8 py-4 sm:py-5 md:py-6">
         {/* Welcome Section */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 break-words">
+        <div className="space-y-2 sm:space-y-2.5 md:space-y-3">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans leading-tight break-words">
             {timeGreeting}, {studentName}! 👋
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-sans leading-relaxed">
             Here's your learning progress and performance overview
           </p>
         </div>
 
         {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <Card className="bg-card border-border">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Tests Taken</div>
-                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
-                  <Trophy className="h-4 w-4 sm:h-5 sm:w-5" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <CardContent className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground font-sans truncate">Tests Taken</div>
+                <div className="bg-primary/10 text-primary flex size-8 sm:size-9 md:size-10 shrink-0 items-center justify-center rounded-lg">
+                  <Trophy className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-foreground">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans mb-2">
                 {stats.totalTests}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans leading-relaxed">
                 {stats.totalTests > 0 ? 'Keep going!' : 'Take your first test'}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Average Score</div>
-                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
-                  <Target className="h-4 w-4 sm:h-5 sm:w-5" />
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <CardContent className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground font-sans truncate">Average Score</div>
+                <div className="bg-primary/10 text-primary flex size-8 sm:size-9 md:size-10 shrink-0 items-center justify-center rounded-lg">
+                  <Target className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-foreground">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans mb-2">
                 {stats.avgScore.toFixed(1)}%
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans leading-relaxed">
                 {stats.avgScore >= 70 ? 'Excellent!' : stats.avgScore >= 50 ? 'Good progress' : 'Keep practicing'}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Questions Done</div>
-                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
-                  <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <CardContent className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground font-sans truncate">Questions Done</div>
+                <div className="bg-primary/10 text-primary flex size-8 sm:size-9 md:size-10 shrink-0 items-center justify-center rounded-lg">
+                  <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-foreground">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans mb-2">
                 {stats.totalQuestionsAnswered}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans leading-relaxed">
                 {stats.totalQuestionsAnswered >= 100 ? 'Great practice!' : 'Practice more to improve'}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <div className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Current Streak</div>
-                <div className="bg-primary/10 text-primary flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-md">
-                  <Flame className="h-4 w-4 sm:h-5 sm:w-5" />
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <CardContent className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground font-sans truncate">Current Streak</div>
+                <div className="bg-primary/10 text-primary flex size-8 sm:size-9 md:size-10 shrink-0 items-center justify-center rounded-lg">
+                  <Flame className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-foreground break-words">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground font-sans mb-2 break-words">
                 {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans leading-relaxed">
                 {stats.currentStreak > 0 ? 'Keep the streak alive!' : 'Start your streak today'}
               </p>
             </CardContent>
@@ -340,36 +340,42 @@ export function DashboardContent({
           />
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
           {/* Recommended Actions */}
           {dashboardPreferences?.showRecommendations && (
-            <Card className="bg-card border-border">
-              <CardHeader className="px-4 sm:px-6 pb-4">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+              <CardHeader className="px-4 sm:px-5 md:px-6 pb-3 sm:pb-4 md:pb-5">
+                <CardTitle className="flex items-center gap-2 sm:gap-3 text-base sm:text-lg md:text-xl font-bold text-foreground font-sans">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 flex-shrink-0 text-primary" />
                   <span className="truncate">Recommended</span>
                 </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Personalized suggestions for you</CardDescription>
+                <CardDescription className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans mt-1 sm:mt-1.5 md:mt-2">
+                  Personalized suggestions for you
+                </CardDescription>
               </CardHeader>
-              <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3 sm:space-y-4">
+              <CardContent className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6 space-y-3 sm:space-y-4">
                 {recommendations.map((rec, index) => (
                   <div
                     key={index}
-                    className="p-3 sm:p-4 rounded-lg border border-border hover:border-primary/50 transition-colors"
+                    className="p-3 sm:p-4 md:p-5 rounded-lg border-2 border-border hover:border-primary/50 transition-all duration-300 bg-card/50"
                   >
-                    <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
-                      <div className="bg-primary/10 text-primary p-1.5 rounded-md flex-shrink-0">
-                        <rec.icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <div className="flex items-start gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4">
+                      <div className="bg-primary/10 text-primary p-2 sm:p-2.5 md:p-3 rounded-lg flex-shrink-0">
+                        <rec.icon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 flex-shrink-0" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-foreground text-sm sm:text-base mb-1 break-words">{rec.title}</h4>
-                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{rec.description}</p>
+                        <h4 className="font-semibold text-foreground text-sm sm:text-base md:text-lg mb-1.5 sm:mb-2 break-words font-sans">
+                          {rec.title}
+                        </h4>
+                        <p className="text-xs sm:text-sm md:text-base text-muted-foreground leading-relaxed font-sans">
+                          {rec.description}
+                        </p>
                       </div>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full text-xs sm:text-sm"
+                      className="w-full text-xs sm:text-sm md:text-base font-medium min-h-[44px] sm:min-h-[48px] border-2 border-primary/20 hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-all duration-200"
                       onClick={() => router.push(rec.href)}
                     >
                       {rec.action}
@@ -403,39 +409,47 @@ export function DashboardContent({
 
         {/* Performance Trend */}
         {dashboardPreferences?.showPerformanceTrend && performanceTrend.length > 0 && (
-          <Card className="bg-card border-border">
-            <CardHeader className="px-4 sm:px-6 pb-4">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+          <Card className="bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-md">
+            <CardHeader className="px-4 sm:px-5 md:px-6 pb-3 sm:pb-4 md:pb-5">
+              <CardTitle className="flex items-center gap-2 sm:gap-3 text-base sm:text-lg md:text-xl font-bold text-foreground font-sans">
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 flex-shrink-0 text-primary" />
                 <span className="truncate">Performance Over Time</span>
               </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Your score trend across recent tests</CardDescription>
+              <CardDescription className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans mt-1 sm:mt-1.5 md:mt-2">
+                Your score trend across recent tests
+              </CardDescription>
             </CardHeader>
-            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-              <div className="w-full overflow-x-auto">
-                <ResponsiveContainer width="100%" height={250} className="sm:h-[300px] min-w-[300px]">
+            <CardContent className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6">
+              <div className="w-full overflow-x-auto -mx-4 sm:-mx-5 md:-mx-6 px-4 sm:px-5 md:px-6">
+                <ResponsiveContainer width="100%" height={250} className="sm:h-[300px] md:h-[350px] min-w-[300px]">
                   <LineChart data={performanceTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="date" 
                       stroke="hsl(var(--muted-foreground))"
-                      style={{ fontSize: '12px' }}
+                      style={{ fontSize: '11px', fontFamily: 'var(--font-sans)' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
                     <YAxis 
                       domain={[0, 100]} 
                       stroke="hsl(var(--muted-foreground))"
-                      style={{ fontSize: '12px' }}
+                      style={{ fontSize: '11px', fontFamily: 'var(--font-sans)' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
+                        border: '2px solid hsl(var(--border))',
                         borderRadius: 'var(--radius)',
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: '12px',
                       }}
                       formatter={(value: any) => [`${value}%`, 'Score']}
                       labelFormatter={(label) => `Date: ${label}`}
                     />
-                    <Legend />
+                    <Legend 
+                      wrapperStyle={{ fontFamily: 'var(--font-sans)', fontSize: '12px' }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="score"
@@ -454,27 +468,31 @@ export function DashboardContent({
 
         {/* Weak Areas Alert */}
         {dashboardPreferences?.showWeakAreas && weakAreas.length > 0 && (
-          <Card className="border-destructive/20 bg-destructive/5">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-start gap-3 sm:gap-4">
-                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive flex-shrink-0 mt-0.5 sm:mt-1" />
+          <Card className="border-2 border-destructive/30 bg-destructive/5 hover:border-destructive/50 transition-all duration-300">
+            <CardContent className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-start gap-3 sm:gap-4 md:gap-5">
+                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-destructive flex-shrink-0 mt-0.5 sm:mt-1" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2 break-words">
+                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-foreground mb-2 sm:mb-3 break-words font-sans">
                     Areas Needing Attention
                   </h3>
-                  <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4 leading-relaxed">
+                  <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-3 sm:mb-4 md:mb-5 leading-relaxed font-sans">
                     You have lower accuracy ({' <'}60%) in the following topics:
                   </p>
-                  <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
+                  <div className="flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 mb-4 sm:mb-5 md:mb-6">
                     {weakAreas.map((area) => (
-                      <Badge key={area} variant="secondary" className="bg-destructive/10 text-destructive-foreground text-xs sm:text-sm">
+                      <Badge 
+                        key={area} 
+                        variant="secondary" 
+                        className="bg-destructive/10 text-destructive-foreground border border-destructive/20 text-xs sm:text-sm md:text-base font-medium px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 font-sans"
+                      >
                         {area}
                       </Badge>
                     ))}
                   </div>
                   <Button
                     size="sm"
-                    className="sm:size-default bg-destructive hover:bg-destructive/90 text-destructive-foreground w-full sm:w-auto"
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground w-full sm:w-auto font-medium text-xs sm:text-sm md:text-base min-h-[44px] sm:min-h-[48px] px-4 sm:px-6 md:px-8 shadow-md hover:shadow-lg transition-all duration-200"
                     onClick={() => router.push('/practice')}
                   >
                     Practice These Topics
@@ -486,24 +504,32 @@ export function DashboardContent({
         )}
 
         {/* Quick Access Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          <Card className="bg-primary text-primary-foreground border-0 cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => router.push('/practice')}>
-            <CardContent className="p-6 sm:p-8 text-center">
-              <Brain className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4" />
-              <h3 className="text-xl sm:text-2xl font-bold mb-2 break-words">Start Practice</h3>
-              <p className="text-sm sm:text-base text-primary-foreground/80 leading-relaxed">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+          <Card 
+            className="bg-primary text-primary-foreground border-0 cursor-pointer hover:shadow-lg active:scale-[0.98] transition-all duration-200 min-h-[140px] sm:min-h-[160px] md:min-h-[180px]"
+            onClick={() => router.push('/practice')}
+          >
+            <CardContent className="p-5 sm:p-6 md:p-7 lg:p-8 text-center">
+              <Brain className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 mx-auto mb-3 sm:mb-4 md:mb-5" />
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 break-words font-sans">
+                Start Practice
+              </h3>
+              <p className="text-sm sm:text-base md:text-lg text-primary-foreground/90 leading-relaxed font-sans">
                 Choose a topic and practice at your own pace
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-accent text-accent-foreground border-0 cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => router.push('/test')}>
-            <CardContent className="p-6 sm:p-8 text-center">
-              <ClipboardList className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4" />
-              <h3 className="text-xl sm:text-2xl font-bold mb-2 break-words">Take a Test</h3>
-              <p className="text-sm sm:text-base text-accent-foreground/80 leading-relaxed">
+          <Card 
+            className="bg-accent text-accent-foreground border-0 cursor-pointer hover:shadow-lg active:scale-[0.98] transition-all duration-200 min-h-[140px] sm:min-h-[160px] md:min-h-[180px]"
+            onClick={() => router.push('/test')}
+          >
+            <CardContent className="p-5 sm:p-6 md:p-7 lg:p-8 text-center">
+              <ClipboardList className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 mx-auto mb-3 sm:mb-4 md:mb-5" />
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 break-words font-sans">
+                Take a Test
+              </h3>
+              <p className="text-sm sm:text-base md:text-lg text-accent-foreground/90 leading-relaxed font-sans">
                 Experience real exam conditions with timed tests
               </p>
             </CardContent>

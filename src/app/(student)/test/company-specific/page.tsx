@@ -30,7 +30,7 @@ export default async function CompanySpecificTestsPage() {
     .select(`
       *,
       category:categories(name),
-      questions(count)
+      questions!questions_test_id_fkey(count)
     `)
     .eq('is_published', true)
     .eq('test_type', 'company_specific')

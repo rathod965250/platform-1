@@ -121,8 +121,8 @@ export function PricingSection() {
                 <ul className="space-y-3">
                   {plan.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-start gap-3">
-                      <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-foreground/70">{feature}</span>
+                      <Check className="h-6 w-6 text-primary flex-shrink-0 mt-0.5" />
+                      <span className="text-base text-foreground/70">{feature}</span>
                     </li>
                   ))}
                 </ul>

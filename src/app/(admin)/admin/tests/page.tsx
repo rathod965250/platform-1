@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { DeleteTestButton } from '@/components/admin/DeleteTestButton'
 import { logAdminError, extractErrorDetails } from '@/lib/admin/error-handler'
 import { ErrorDisplay } from '@/components/admin/ErrorDisplay'
+import { sanitizeSupabaseResult, extractRelationship } from '@/lib/supabase/utils'
 
 export const metadata = {
   title: 'Manage Tests',
@@ -16,12 +17,12 @@ export const metadata = {
 export default async function TestsPage() {
   const supabase = await createClient()
 
-  const { data: tests, error } = await supabase
+  const { data: testsRaw, error } = await supabase
     .from('tests')
     .select(`
       *,
       category:categories(name),
-      questions:questions(count)
+      questions!questions_test_id_fkey(count)
     `)
     .order('created_at', { ascending: false })
 
@@ -30,6 +31,36 @@ export default async function TestsPage() {
   }
 
   const errorDetails = error ? extractErrorDetails(error) : null
+
+  // Sanitize tests - filter out Supabase metadata from relationships
+  const tests = sanitizeSupabaseResult(testsRaw || []).map((test: any) => {
+    // Extract category relationship safely
+    const category = extractRelationship(test.category)
+    // Extract questions relationship safely (might be array or metadata)
+    let questions = test.questions
+    if (questions) {
+      if (Array.isArray(questions)) {
+        // Filter out metadata objects
+        questions = questions.filter((q: any) => {
+          if (!q || typeof q !== 'object') return false
+          return !('cardinality' in q) && !('embedding' in q) && !('relationship' in q)
+        })
+      } else if (typeof questions === 'object') {
+        // Check if it's metadata
+        if ('cardinality' in questions || 'embedding' in questions || 'relationship' in questions) {
+          questions = []
+        }
+      }
+    }
+    
+    return {
+      ...test,
+      category: category && typeof category === 'object' && 'name' in category 
+        ? { name: category.name } 
+        : null,
+      questions: questions || [],
+    }
+  })
 
   return (
     <div className="space-y-6">

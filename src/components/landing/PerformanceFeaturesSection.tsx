@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { BookOpen, Clock, Upload, Target, Video, BarChart3, FileText, Brain, Award } from 'lucide-react'
+import { BookOpen, Clock, Upload, Target, BarChart3, FileText, Brain, Award } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const tabs = [
@@ -16,7 +16,6 @@ const tabs = [
     features: [
       { icon: Brain, text: 'AI-recommended topics based on your performance' },
       { icon: Target, text: 'Adaptive difficulty that evolves with you' },
-      { icon: Video, text: 'Instant explanations with video tutorials' },
       { icon: BarChart3, text: 'Track progress with detailed analytics' },
     ],
     cardContent: {
@@ -85,7 +84,7 @@ export function PerformanceFeaturesSection() {
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
             Built for high performance
           </h2>
-          <p className="text-base md:text-lg text-foreground/70 max-w-3xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-foreground/70 max-w-3xl mx-auto">
             CrackAtom gives students everything they need to stay aligned, track performance, 
             and scale with confidence — all in one place.
           </p>
@@ -93,7 +92,7 @@ export function PerformanceFeaturesSection() {
 
         {/* Tab Navigation */}
         <div className="flex justify-center mb-8 md:mb-12">
-          <div className="inline-flex rounded-full bg-accent/30 p-1 gap-1 md:gap-2 border border-border/50 overflow-x-auto max-w-full">
+          <div className="inline-flex rounded-full bg-accent/30 p-1 gap-1 md:gap-2 border border-border/50 max-w-full overflow-x-auto sm:overflow-x-visible">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -102,9 +101,9 @@ export function PerformanceFeaturesSection() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-full',
-                    'text-sm md:text-base font-medium transition-all duration-300',
-                    'whitespace-nowrap cursor-pointer',
+                    'flex items-center gap-2 px-4 md:px-6 py-3 md:py-3 rounded-full',
+                    'text-sm sm:text-base md:text-lg font-medium transition-all duration-300',
+                    'whitespace-nowrap cursor-pointer min-h-[44px]',
                     isActive
                       ? 'bg-card text-foreground shadow-md shadow-primary/10'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -133,7 +132,7 @@ export function PerformanceFeaturesSection() {
               {/* Right Panel - Description */}
               <div className="p-3 sm:p-4 md:p-5 flex flex-col justify-center">
                 <div className="mb-3">
-                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-chart-1/20 text-chart-1 mb-3">
+                  <span className="inline-block px-3 py-1 rounded-full text-sm sm:text-base font-semibold bg-chart-1/20 text-chart-1 mb-3">
                     {activeTabData.badge}
                   </span>
                 </div>
@@ -142,7 +141,7 @@ export function PerformanceFeaturesSection() {
                   {activeTabData.title}
                 </h3>
                 
-                <p className="text-sm md:text-base text-foreground/70 mb-4 leading-relaxed">
+                <p className="text-sm sm:text-base md:text-lg text-foreground/70 mb-4 leading-relaxed">
                   {activeTabData.description}
                 </p>
                 
@@ -158,7 +157,7 @@ export function PerformanceFeaturesSection() {
                         <div className="w-7 h-7 rounded-lg bg-chart-2/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                           <FeatureIcon className="h-3.5 w-3.5 text-chart-2" />
                         </div>
-                        <span className="text-xs md:text-sm text-foreground/80 leading-relaxed">
+                        <span className="text-sm sm:text-base md:text-lg text-foreground/80 leading-relaxed">
                           {feature.text}
                         </span>
                       </div>

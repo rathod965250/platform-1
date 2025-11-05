@@ -86,7 +86,7 @@ export default function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
       />
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         <HeroSection />
         <PartnerLogosSection />

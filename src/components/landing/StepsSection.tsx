@@ -61,22 +61,22 @@ export function StepsSection() {
                 }}
               >
                 <CardHeader className="relative">
-                  <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
+                  <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div className={cn(
-                      'w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center',
+                      'w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0',
                       'transition-all duration-300 group-hover:scale-110 group-hover:rotate-3',
                       'group-hover:shadow-md',
                       feature.iconBg
                     )}>
                       <Icon className={cn('h-5 w-5 sm:h-6 sm:w-6 transition-all duration-300 group-hover:scale-110', feature.iconColor)} />
                     </div>
+                    <CardTitle className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex-1">
+                      {feature.title}
+                    </CardTitle>
                   </div>
-                  <CardTitle className="text-base sm:text-lg md:text-xl font-bold text-foreground mb-2">
-                    {feature.title}
-                  </CardTitle>
                 </CardHeader>
                 <CardContent className="relative">
-                  <CardDescription className="text-xs sm:text-sm md:text-base text-foreground/70 leading-relaxed">
+                  <CardDescription className="text-sm sm:text-base md:text-lg text-foreground/70 leading-relaxed">
                     {feature.description}
                   </CardDescription>
                 </CardContent>

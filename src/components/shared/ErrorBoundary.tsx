@@ -32,8 +32,8 @@ export class ErrorBoundary extends React.Component<
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
       console.error('Error Boundary caught an error:', error, errorInfo)
-      console.error('Error stack:', error.stack)
-      console.error('Component stack:', errorInfo.componentStack)
+      console.error('Error stack:', error?.stack || 'No stack trace available')
+      console.error('Component stack:', errorInfo?.componentStack || 'No component stack available')
     }
     
     // Log to error tracking service in production
@@ -42,9 +42,9 @@ export class ErrorBoundary extends React.Component<
     if (typeof window !== 'undefined' && window.navigator?.sendBeacon) {
       try {
         const errorData = {
-          message: error.message,
-          stack: error.stack,
-          componentStack: errorInfo.componentStack,
+          message: error?.message || 'Unknown error',
+          stack: error?.stack || 'No stack trace available',
+          componentStack: errorInfo?.componentStack || 'No component stack available',
           timestamp: new Date().toISOString(),
           userAgent: navigator.userAgent,
           url: window.location.href,

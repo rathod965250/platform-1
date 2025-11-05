@@ -122,20 +122,20 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden min-h-[44px] min-w-[44px]"
               onClick={() => setMenuState(!menuState)}
               aria-label="Toggle menu"
             >
-              <div className="relative w-5 h-5">
+              <div className="relative w-6 h-6">
                 <Menu
                   className={cn(
-                    'absolute inset-0 h-5 w-5 transition-all duration-300',
+                    'absolute inset-0 h-6 w-6 transition-all duration-300',
                     menuState ? 'rotate-90 opacity-0' : 'rotate-0 opacity-100'
                   )}
                 />
                 <X
                   className={cn(
-                    'absolute inset-0 h-5 w-5 transition-all duration-300',
+                    'absolute inset-0 h-6 w-6 transition-all duration-300',
                     menuState ? 'rotate-0 opacity-100' : '-rotate-90 opacity-0'
                   )}
                 />
@@ -155,21 +155,21 @@ export function Navbar() {
               <Link
                 href="/practice"
                 onClick={() => setMenuState(false)}
-                className="block px-2 py-2 text-sm text-foreground/70 hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                className="block px-3 py-3 text-base text-foreground/70 hover:text-foreground hover:bg-accent rounded-md transition-colors min-h-[44px]"
               >
                 Practice
               </Link>
               <Link
                 href="/test"
                 onClick={() => setMenuState(false)}
-                className="block px-2 py-2 text-sm text-foreground/70 hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                className="block px-3 py-3 text-base text-foreground/70 hover:text-foreground hover:bg-accent rounded-md transition-colors min-h-[44px]"
               >
                 Tests
               </Link>
               <Link
                 href="/dashboard"
                 onClick={() => setMenuState(false)}
-                className="block px-2 py-2 text-sm text-foreground/70 hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                className="block px-3 py-3 text-base text-foreground/70 hover:text-foreground hover:bg-accent rounded-md transition-colors min-h-[44px]"
               >
                 Analytics
               </Link>
@@ -181,7 +181,7 @@ export function Navbar() {
                 key={link.name}
                 href={link.href}
                 onClick={() => setMenuState(false)}
-                className="block px-2 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
+                className="block px-3 py-3 text-base font-medium text-foreground/80 hover:text-foreground transition-colors min-h-[44px]"
               >
                 {link.name}
               </Link>

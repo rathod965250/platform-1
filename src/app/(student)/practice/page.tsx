@@ -322,19 +322,19 @@ export default async function PracticePage() {
       masteryLevels={masteryLevels}
       adaptiveStates={adaptiveStates || []}
     >
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+      <div className="min-h-screen bg-gradient-to-b from-background to-accent/5 py-4 sm:py-6 md:py-8">
+        <div className="container mx-auto px-4 sm:px-5 md:px-6 lg:px-8 max-w-7xl space-y-4 sm:space-y-5 md:space-y-6 lg:space-y-8">
         {/* Hero Section */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <Sparkles className="h-8 w-8 text-primary" />
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-5 md:mb-6">
+            <div className="p-2.5 sm:p-3 md:p-4 rounded-lg sm:rounded-xl bg-primary/10 shrink-0">
+              <Sparkles className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-primary" />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 sm:mb-2.5 md:mb-3 font-sans leading-tight break-words">
                 Adaptive Practice
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-sans leading-relaxed">
                 AI-powered practice that adjusts difficulty based on your performance
               </p>
             </div>
@@ -354,14 +354,14 @@ export default async function PracticePage() {
 
         {/* Recent Sessions Section */}
         {recentSessionsWithCategories.length > 0 && (
-          <div className="mb-8">
+          <div className="mb-4 sm:mb-6 md:mb-8">
             <RecentSessions sessions={recentSessionsWithCategories} isLoading={false} />
           </div>
         )}
 
         {/* Performance Highlights */}
         {(strengths.length > 0 || weakAreas.length > 0) && (
-          <div className="mb-8">
+          <div className="mb-4 sm:mb-6 md:mb-8">
             <PerformanceHighlights
               strengths={strengths}
               weakAreas={weakAreas}
@@ -371,8 +371,8 @@ export default async function PracticePage() {
         )}
 
         {/* Categories Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-3 sm:mb-4 md:mb-5 font-sans">
             Your Practice Progress
           </h2>
 
@@ -381,7 +381,7 @@ export default async function PracticePage() {
             // We'll fetch category metrics per category (simplified for now)
             // In production, this could be optimized with a single query
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
                 {categories?.map((category) => {
                   const state = adaptiveStateMap.get(category.id)
                   

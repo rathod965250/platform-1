@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardContent } from '@/components/dashboard/DashboardContent'
+import { sanitizeSupabaseResult, extractRelationship } from '@/lib/supabase/utils'
 
 export const metadata = {
   title: 'Dashboard | Aptitude Preparation Platform',
@@ -137,7 +138,7 @@ export default async function DashboardPage() {
   }) || []
 
   // Fetch adaptive states for mastery scores
-  const { data: adaptiveStates } = await supabase
+  const { data: adaptiveStatesRaw } = await supabase
     .from('adaptive_state')
     .select(`
       *,
@@ -145,13 +146,25 @@ export default async function DashboardPage() {
     `)
     .eq('user_id', user.id)
 
+  // Sanitize adaptiveStates - filter out Supabase metadata and ensure proper data structure
+  const adaptiveStates = sanitizeSupabaseResult(adaptiveStatesRaw || []).map((state: any) => {
+    // Extract category relationship safely
+    const category = extractRelationship(state.category)
+    return {
+      ...state,
+      category: category && typeof category === 'object' && 'name' in category 
+        ? { name: category.name, id: category.id } 
+        : null,
+    }
+  })
+
   // Analyze weak areas from test attempts and adaptive states
   const categoryPerformance: Record<string, { correct: number; total: number }> = {}
   
   // Fetch all attempt answers in a single query instead of looping
   if (testAttempts && testAttempts.length > 0) {
     const attemptIds = testAttempts.map(attempt => attempt.id)
-    const { data: allAnswers } = await supabase
+    const { data: allAnswersRaw } = await supabase
       .from('attempt_answers')
       .select(`
         is_correct,
@@ -164,22 +177,54 @@ export default async function DashboardPage() {
       `)
       .in('attempt_id', attemptIds)
 
-    // Process answers in-memory
-    allAnswers?.forEach((answer) => {
-      // Safe navigation for nested relations
-      const question = Array.isArray(answer.question) ? answer.question[0] : answer.question
-      const questionObj = question && typeof question === 'object' && !Array.isArray(question) ? question : null
-      const subcategory = questionObj && 'subcategory' in questionObj ? (Array.isArray(questionObj.subcategory) ? questionObj.subcategory[0] : questionObj.subcategory) : null
-      const subcategoryObj = subcategory && typeof subcategory === 'object' && !Array.isArray(subcategory) ? subcategory : null
-      const category = subcategoryObj && 'category' in subcategoryObj ? (Array.isArray(subcategoryObj.category) ? subcategoryObj.category[0] : subcategoryObj.category) : null
-      const categoryObj = category && typeof category === 'object' && !Array.isArray(category) ? category : null
-      const categoryName = (categoryObj && 'name' in categoryObj ? String(categoryObj.name) : 'Other')
-      if (!categoryPerformance[categoryName]) {
-        categoryPerformance[categoryName] = { correct: 0, total: 0 }
+    // Sanitize answers - filter out Supabase metadata from nested relationships
+    const allAnswers = sanitizeSupabaseResult(allAnswersRaw || []).map((answer: any) => {
+      const question = extractRelationship(answer.question)
+      if (question && typeof question === 'object') {
+        const subcategory = extractRelationship(question.subcategory)
+        if (subcategory && typeof subcategory === 'object') {
+          const category = extractRelationship(subcategory.category)
+          return {
+            ...answer,
+            question: {
+              subcategory: {
+                category: category && typeof category === 'object' && 'name' in category
+                  ? { name: category.name }
+                  : null,
+              },
+            },
+          }
+        }
+        return {
+          ...answer,
+          question: {
+            subcategory: subcategory && typeof subcategory === 'object'
+              ? subcategory
+              : null,
+          },
+        }
       }
-      categoryPerformance[categoryName].total += 1
-      if (answer.is_correct) {
-        categoryPerformance[categoryName].correct += 1
+      return {
+        ...answer,
+        question: question && typeof question === 'object' ? question : null,
+      }
+    })
+
+    // Process answers in-memory
+    allAnswers.forEach((answer) => {
+      const question = answer.question
+      if (question && question.subcategory && question.subcategory.category) {
+        const category = question.subcategory.category
+        const categoryName = (category && typeof category === 'object' && 'name' in category && !('cardinality' in category))
+          ? String(category.name)
+          : 'Other'
+        if (!categoryPerformance[categoryName]) {
+          categoryPerformance[categoryName] = { correct: 0, total: 0 }
+        }
+        categoryPerformance[categoryName].total += 1
+        if (answer.is_correct) {
+          categoryPerformance[categoryName].correct += 1
+        }
       }
     })
   }

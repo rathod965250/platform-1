@@ -36,19 +36,44 @@ export default async function TestSelectionPage() {
   }
 
   // Fetch published tests
-  const { data: tests } = await supabase
+  const { data: testsRaw } = await supabase
     .from('tests')
     .select(`
       *,
       category:categories(name),
-      questions(count)
+      questions!questions_test_id_fkey(count)
     `)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
 
+  // Sanitize tests - filter out Supabase metadata from relationships
+  const tests = sanitizeSupabaseResult(testsRaw || []).map((test: any) => {
+    const category = extractRelationship(test.category)
+    let questions = test.questions
+    if (questions) {
+      if (Array.isArray(questions)) {
+        questions = questions.filter((q: any) => {
+          if (!q || typeof q !== 'object') return false
+          return !('cardinality' in q) && !('embedding' in q) && !('relationship' in q)
+        })
+      } else if (typeof questions === 'object') {
+        if ('cardinality' in questions || 'embedding' in questions || 'relationship' in questions) {
+          questions = []
+        }
+      }
+    }
+    return {
+      ...test,
+      category: category && typeof category === 'object' && 'name' in category 
+        ? { name: category.name } 
+        : null,
+      questions: questions || [],
+    }
+  })
+
   // Group tests by type
-  const mockTests = tests?.filter(t => t.test_type === 'mock') || []
-  const companyTests = tests?.filter(t => t.test_type === 'company_specific') || []
+  const mockTests = tests.filter(t => t.test_type === 'mock')
+  const companyTests = tests.filter(t => t.test_type === 'company_specific')
 
   // Fetch user profile for DashboardShell
   const { data: profile } = await supabase
@@ -58,7 +83,7 @@ export default async function TestSelectionPage() {
     .single()
 
   // Fetch test attempts for stats
-  const { data: testAttempts } = await supabase
+  const { data: testAttemptsRaw } = await supabase
     .from('test_attempts')
     .select(`
       id,
@@ -70,6 +95,17 @@ export default async function TestSelectionPage() {
     .eq('user_id', user.id)
     .not('submitted_at', 'is', null)
     .order('submitted_at', { ascending: false })
+
+  // Sanitize test attempts - extract test relationship safely
+  const testAttempts = sanitizeSupabaseResult(testAttemptsRaw || []).map((attempt: any) => {
+    const test = extractRelationship(attempt.test)
+    return {
+      ...attempt,
+      test: test && typeof test === 'object' && 'total_marks' in test
+        ? { total_marks: test.total_marks }
+        : null,
+    }
+  })
 
   // Fetch practice sessions for total questions
   const { data: practiceSessions } = await supabase
