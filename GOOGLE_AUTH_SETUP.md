@@ -142,3 +142,4 @@ SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET="<your-client-secret>"
 - Google OAuth tokens are handled securely by Supabase
 - Profile updates are non-destructive (only updates missing fields)
 
+

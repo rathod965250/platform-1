@@ -155,7 +155,21 @@ export default async function AchievementsPage() {
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
   allUserMetrics?.forEach((metric) => {
-    const category = metric.question?.subcategory?.category
+    // Handle the nested structure - question can be an array or object
+    const question = Array.isArray(metric.question) ? metric.question[0] : metric.question
+    if (!question || typeof question !== 'object') return
+    
+    // Handle subcategory - can be an array or object
+    const subcategory = Array.isArray(question.subcategory) 
+      ? question.subcategory[0] 
+      : question.subcategory
+    if (!subcategory || typeof subcategory !== 'object') return
+    
+    // Handle category - can be an array or object
+    const category = Array.isArray(subcategory.category)
+      ? subcategory.category[0]
+      : subcategory.category
+    
     if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category) {
       const categoryName = String(category.name)
       const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }

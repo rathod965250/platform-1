@@ -155,7 +155,21 @@ export default async function AnalyticsPage() {
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
   allUserMetrics?.forEach((metric) => {
-    const category = metric.question?.subcategory?.category
+    // Handle the nested structure - question can be an array or object
+    const question = Array.isArray(metric.question) ? metric.question[0] : metric.question
+    if (!question || typeof question !== 'object') return
+    
+    // Handle subcategory - can be an array or object
+    const subcategory = Array.isArray(question.subcategory) 
+      ? question.subcategory[0] 
+      : question.subcategory
+    if (!subcategory || typeof subcategory !== 'object') return
+    
+    // Handle category - can be an array or object
+    const category = Array.isArray(subcategory.category)
+      ? subcategory.category[0]
+      : subcategory.category
+    
     if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category) {
       const categoryName = String(category.name)
       const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }
@@ -198,7 +212,7 @@ export default async function AnalyticsPage() {
   })).sort((a, b) => b.total - a.total)
 
   // Calculate test type performance
-  const testTypeStats = new Map<string, { total: number; avgScore: number }>()
+  const testTypeStats = new Map<string, { total: number; avgScore: number; sum: number }>()
   testAttempts?.forEach((attempt) => {
     const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
     const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
