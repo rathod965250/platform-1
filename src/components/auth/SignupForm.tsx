@@ -121,21 +121,33 @@ export function SignupForm() {
     try {
       const supabase = createClient()
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Get the current origin for redirect URL
+      const redirectUrl = `${window.location.origin}/auth/callback`
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          redirectTo: `${redirectUrl}?next=/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       })
 
       if (error) {
-        toast.error(error.message)
+        console.error('Google OAuth error:', error)
+        toast.error(error.message || 'Failed to initiate Google signup')
         setIsGoogleLoading(false)
+      } else if (data?.url) {
+        // For client-side redirect, the browser will handle it
+        // The OAuth flow will redirect automatically
+        window.location.href = data.url
       }
       // Don't set loading to false here as the page will redirect
     } catch (error: any) {
       console.error('Google signup error:', error)
-      toast.error('An error occurred during Google signup')
+      toast.error('An error occurred during Google signup. Please try again.')
       setIsGoogleLoading(false)
     }
   }

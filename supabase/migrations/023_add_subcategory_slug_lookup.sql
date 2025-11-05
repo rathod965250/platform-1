@@ -126,5 +126,5 @@ CREATE TRIGGER trigger_lookup_subcategory_id_from_slug
 
 -- Add comment
 COMMENT ON FUNCTION lookup_subcategory_id_from_slug() IS 
-  'Automatically resolves subcategory_id from subcategory_slug during CSV import. Also normalizes difficulty and question_type to lowercase using built-in LOWER() function to match database CHECK constraints. Looks up subcategory by slug and sets subcategory_id.';
+  'Automatically resolves subcategory_id from subcategory_slug during CSV import. Also normalizes difficulty and question_type (if provided) to lowercase using built-in LOWER() function to match database CHECK constraints. Note: question_type defaults to ''mcq'' in the schema, so normalization only applies if explicitly provided. The question_topic column is independent and does not require normalization. Looks up subcategory by slug and sets subcategory_id.';
 

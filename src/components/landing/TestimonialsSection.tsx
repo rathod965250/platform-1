@@ -295,7 +295,7 @@ function TestimonialsColumn(props: {
           ease: "linear",
           repeatType: "loop",
         }}
-        className="flex flex-col gap-6 pb-6 bg-background"
+        className="flex flex-col gap-4 sm:gap-5 md:gap-6 pb-6 bg-background"
       >
         {duplicatedTestimonials.map((testimonial, i) => {
           // Create stable unique key for each testimonial instance
@@ -303,20 +303,20 @@ function TestimonialsColumn(props: {
           return (
             <div 
               key={uniqueKey}
-              className="p-10 rounded-3xl border shadow-lg shadow-primary/10 max-w-xs w-full bg-card"
+              className="p-4 sm:p-6 md:p-8 lg:p-10 rounded-2xl sm:rounded-3xl border shadow-lg shadow-primary/10 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm w-full bg-card mx-auto sm:mx-0"
             >
-              <div className="text-foreground">{testimonial.text}</div>
-              <div className="flex items-center gap-2 mt-5">
+              <div className="text-foreground text-sm sm:text-base md:text-sm lg:text-base leading-relaxed">{testimonial.text}</div>
+              <div className="flex items-center gap-2 sm:gap-3 mt-4 sm:mt-5">
                 <img
                   width={40}
                   height={40}
                   src={testimonial.image}
                   alt={testimonial.name}
-                  className="h-10 w-10 rounded-full object-cover"
+                  className="h-8 w-8 sm:h-10 sm:w-10 md:h-9 md:w-9 lg:h-10 lg:w-10 rounded-full object-cover flex-shrink-0"
                 />
-                <div className="flex flex-col">
-                  <div className="font-medium tracking-tight leading-5 text-foreground">{testimonial.name}</div>
-                  <div className="leading-5 opacity-60 tracking-tight text-muted-foreground">{testimonial.role}</div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <div className="font-medium tracking-tight leading-tight sm:leading-5 text-foreground text-xs sm:text-sm md:text-xs lg:text-sm truncate">{testimonial.name}</div>
+                  <div className="leading-tight sm:leading-5 opacity-60 tracking-tight text-muted-foreground text-xs sm:text-sm truncate">{testimonial.role}</div>
                 </div>
               </div>
             </div>
@@ -336,6 +336,12 @@ export function TestimonialsSection() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
   const [loading, setLoading] = useState(true)
   const [useFallback, setUseFallback] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     let supabase: ReturnType<typeof createClient> | null = null
@@ -454,11 +460,17 @@ export function TestimonialsSection() {
                 // Keep current state if no active testimonials (don't switch to fallback if we're already using it)
                 console.log('⚠️ No active testimonials after realtime update')
                 // Only use fallback if we don't have any testimonials at all
-                if (testimonials.length === 0) {
-                  console.log('📦 Switching to fallback testimonials')
-                  setTestimonials(fallbackTestimonials)
-                  setUseFallback(true)
-                }
+                setTestimonials((prev) => {
+                  if (prev.length === 0) {
+                    console.log('📦 Switching to fallback testimonials')
+                    return fallbackTestimonials
+                  }
+                  return prev
+                })
+                setUseFallback((prev) => {
+                  // Check if we should use fallback based on current state
+                  return prev
+                })
               }
             } catch (error) {
               console.error('❌ Error refreshing testimonials:', error)
@@ -499,18 +511,19 @@ export function TestimonialsSection() {
   const secondColumn = testimonials.slice(3, Math.min(6, testimonials.length))
   const thirdColumn = testimonials.slice(6, Math.min(9, testimonials.length))
 
-  if (loading) {
+  // Prevent hydration mismatch - show loading state until mounted
+  if (!mounted || loading) {
     return (
-      <section className="bg-background my-20 relative">
-        <div className="container z-10 mx-auto">
-          <div className="flex flex-col items-center justify-center max-w-[540px] mx-auto">
+      <section className="bg-background my-10 sm:my-16 md:my-20 relative px-4 sm:px-6 lg:px-8">
+        <div className="container z-10 mx-auto max-w-7xl">
+          <div className="flex flex-col items-center justify-center max-w-[540px] mx-auto px-4 sm:px-6">
             <div className="flex justify-center">
-              <div className="border py-1 px-4 rounded-lg">Testimonials</div>
+              <div className="border py-1 px-3 sm:px-4 rounded-lg text-xs sm:text-sm">Testimonials</div>
             </div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold tracking-tighter mt-5">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tighter mt-4 sm:mt-5 text-center px-4">
               What our users say
             </h2>
-            <p className="text-center mt-5 opacity-75">
+            <p className="text-center mt-3 sm:mt-4 md:mt-5 opacity-75 text-sm sm:text-base md:text-lg px-4">
               Loading testimonials...
             </p>
           </div>
@@ -520,32 +533,34 @@ export function TestimonialsSection() {
   }
 
   return (
-    <section className="bg-background my-20 relative">
-      <div className="container z-10 mx-auto">
+    <section className="bg-background my-10 sm:my-16 md:my-20 relative px-4 sm:px-6 lg:px-8">
+      <div className="container z-10 mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           viewport={{ once: true }}
-          className="flex flex-col items-center justify-center max-w-[540px] mx-auto"
+          className="flex flex-col items-center justify-center max-w-[540px] mx-auto px-4 sm:px-6"
         >
           <div className="flex justify-center">
-            <div className="border py-1 px-4 rounded-lg">Testimonials</div>
+            <div className="border py-1 px-3 sm:px-4 rounded-lg text-xs sm:text-sm">Testimonials</div>
           </div>
 
-          <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold tracking-tighter mt-5">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tighter mt-4 sm:mt-5 text-center px-4">
             What our users say
           </h2>
-          <p className="text-center mt-5 opacity-75">
+          <p className="text-center mt-3 sm:mt-4 md:mt-5 opacity-75 text-sm sm:text-base md:text-lg px-4">
             See what our students have to say about their success stories.
           </p>
         </motion.div>
 
-        <div className="flex flex-col md:flex-row justify-center gap-6 mt-10 [mask-image:linear-gradient(to_bottom,transparent,black_25%,black_75%,transparent)] max-h-[740px] overflow-hidden">
-          <TestimonialsColumn testimonials={firstColumn} duration={15} />
-          <TestimonialsColumn testimonials={secondColumn} className="hidden md:block" duration={19} />
-          <TestimonialsColumn testimonials={thirdColumn} className="hidden lg:block" duration={17} />
-        </div>
+        {testimonials.length > 0 ? (
+          <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 lg:gap-8 mt-6 sm:mt-8 md:mt-10 [mask-image:linear-gradient(to_bottom,transparent,black_15%,black_85%,transparent)] max-h-[600px] sm:max-h-[700px] md:max-h-[740px] overflow-hidden px-2 sm:px-4">
+            <TestimonialsColumn testimonials={firstColumn} duration={15} />
+            <TestimonialsColumn testimonials={secondColumn} className="hidden sm:block" duration={19} />
+            <TestimonialsColumn testimonials={thirdColumn} className="hidden lg:block" duration={17} />
+          </div>
+        ) : null}
       </div>
     </section>
   )

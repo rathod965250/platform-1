@@ -9,7 +9,7 @@ This document maps the CSV headers (with spaces) to the Supabase database column
 | CSV Header       | Supabase Column | Data Type | Required | Notes |
 | ---------------- | --------------- | --------- | -------- | ----- |
 | question text    | question_text   | TEXT      | Yes      | Main question content |
-| question type    | question_type   | TEXT      | Yes      | Values: 'mcq', 'true_false', 'fill_blank' (case-insensitive, will be normalized to lowercase) |
+| question_topic   | question_topic  | TEXT      | No       | **NEW**: Descriptive topic name from CSV (e.g., "Boats and Streams - Speed Calculation"). Used for analytics. |
 | difficulty level | difficulty      | TEXT      | Yes      | Values: 'easy', 'medium', 'hard' (case-insensitive, will be normalized to lowercase) |
 | option a         | option_a        | TEXT      | No       | Required for MCQ questions |
 | option b         | option_b        | TEXT      | No       | Required for MCQ questions |
@@ -24,6 +24,11 @@ This document maps the CSV headers (with spaces) to the Supabase database column
 | marks            | marks           | INTEGER   | Yes      | Points awarded (default: 1) |
 | subcategory_slug | subcategory_slug| TEXT      | Yes      | Subcategory slug (automatically resolves to subcategory_id). CSV header must use underscore format: "subcategory_slug" |
 
+**Important Changes:**
+- **`question_topic`** (NEW): Use this column for descriptive topic names from your CSV (e.g., "Boats and Streams - Still Water and Stream Speed")
+- **`question_type`**: Now **automatically defaults to 'mcq'** - you don't need to include it in your CSV. The system will auto-fill it.
+- The separation between `question_topic` (descriptive/analytics) and `question_type` (system logic) allows for better data organization.
+
 ### CSV Import Requirements
 
 1. **Column Order**: The CSV columns should be in the exact order shown above
@@ -31,19 +36,26 @@ This document maps the CSV headers (with spaces) to the Supabase database column
 3. **Data Types**: 
    - All text fields should be plain text
    - `marks` should be a number/integer
-   - `question_type` must be one of: `mcq`, `true_false`, `fill_blank` (case-insensitive, will be normalized to lowercase)
+   - `question_topic` is optional and can contain any descriptive text (e.g., "Boats and Streams - Speed Calculation")
+   - `question_type` is **automatically set to 'mcq'** - you don't need to include it in your CSV
    - `difficulty` must be one of: `easy`, `medium`, `hard` (case-insensitive, will be normalized to lowercase)
 
 ### Important Notes
 
-- **MCQ Questions**: For `question_type = 'mcq'`, both `option_a` and `option_b` must be provided
-- **True/False Questions**: For `question_type = 'true_false'`, options are automatically set to "True" and "False"
-- **Fill Blank Questions**: For `question_type = 'fill_blank'`, provide the correct answer in `correct_answer`
-- **Optional Fields**: `solution_steps`, `hints`, and `formula_used` can be left empty
+- **Question Topic vs Question Type**: 
+  - **`question_topic`**: Descriptive topic name from CSV (e.g., "Boats and Streams - Speed Calculation"). Used for analytics and topic tracking.
+  - **`question_type`**: System-level type (default: 'mcq'). Automatically set by the database, no need to include in CSV.
+  - This separation allows descriptive analytics data while maintaining system logic integrity.
+
+- **MCQ Questions**: Since `question_type` defaults to 'mcq', both `option_a` and `option_b` must be provided for standard imports
+- **True/False Questions**: If you need `question_type = 'true_false'`, you'll need to set it manually after import (currently defaults to 'mcq')
+- **Fill Blank Questions**: If you need `question_type = 'fill_blank'`, you'll need to set it manually after import (currently defaults to 'mcq')
+- **Optional Fields**: `question_topic`, `solution_steps`, `hints`, and `formula_used` can be left empty
 - **System Columns**: The following columns are automatically handled by the system:
   - `id` (UUID, auto-generated)
   - `test_id` (UUID, optional)
   - `subcategory_id` (UUID, required - automatically resolved from `subcategory_slug`)
+  - `question_type` (TEXT, automatically set to 'mcq' if not provided)
   - `options` (JSONB, for backward compatibility)
   - `order` (INTEGER, default: 0)
   - `created_at` (TIMESTAMP, auto-generated)
@@ -61,12 +73,15 @@ This document maps the CSV headers (with spaces) to the Supabase database column
 ### CSV Import Example
 
 ```csv
-question text,question type,difficulty level,option a,option b,option c,option d,option e,correct answer,explanation,solution steps,hints,formula used,marks,subcategory_slug
-"What is 2+2?","mcq","easy","2","3","4","5","6","4","The answer is 4","Step 1: Add 2 and 2","Think about basic addition","a + b = c",1,"quantitative-aptitude"
-"Is Python a programming language?","true_false","easy",,,,,"True","Yes, Python is a programming language","","","",1,"logical-reasoning"
+question text,question_topic,difficulty level,option a,option b,option c,option d,option e,correct answer,explanation,solution steps,hints,formula used,marks,subcategory_slug
+"What is 2+2?","Basic Arithmetic - Addition","easy","2","3","4","5","6","4","The answer is 4","Step 1: Add 2 and 2","Think about basic addition","a + b = c",1,"quantitative-aptitude"
+"A boat travels downstream...","Boats and Streams - Still Water and Stream Speed","Easy","Option A","Option B","Option C","Option D","Option E","A","Detailed explanation","Step-by-step solution","Hints for solving","Speed formula",1,"boats-streams"
 ```
 
-**Important**: Notice the header uses `subcategory_slug` (with underscore), not `subcategory slug` (with space).
+**Important Notes:**
+- Notice the header uses `question_topic` (not `question_type`). The `question_type` column is automatically set to 'mcq' by the database.
+- The header uses `subcategory_slug` (with underscore), not `subcategory slug` (with space).
+- `question_topic` can contain descriptive text like "Boats and Streams - Still Water and Stream Speed" for analytics purposes.
 
 ### Finding Available Subcategory Slugs
 
@@ -97,6 +112,7 @@ After importing, verify the data with:
 ```sql
 SELECT 
   question_text,
+  question_topic,
   question_type,
   difficulty,
   option_a,
@@ -116,6 +132,11 @@ FROM questions
 ORDER BY created_at DESC
 LIMIT 10;
 ```
+
+**Expected Results:**
+- `question_topic`: Should contain your descriptive topic name from CSV (e.g., "Boats and Streams - Speed Calculation")
+- `question_type`: Should automatically be 'mcq' for all imported records
+- `subcategory_id`: Should be automatically resolved from `subcategory_slug`
 
 ### Troubleshooting CSV Import
 
@@ -143,4 +164,10 @@ LIMIT 10;
 - The trigger now automatically normalizes difficulty to lowercase (e.g., "Easy" → "easy")
 - If you still see this error, ensure your CSV uses valid values: Easy/Medium/Hard (any case) or easy/medium/hard
 - Re-run migration `023_add_subcategory_slug_lookup.sql` to update the trigger with normalization
+
+**Error: "question_type column not found" or "violates check constraint" for question_type**
+- This should not happen anymore as `question_type` is automatically set to 'mcq'
+- Make sure you're using `question_topic` in your CSV header (not `question_type`)
+- Run migration `024_add_question_topic_column.sql` to add the `question_topic` column and set the default
+- The `question_type` column now defaults to 'mcq' automatically, so you don't need to include it in your CSV
 

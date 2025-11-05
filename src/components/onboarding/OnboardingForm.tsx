@@ -30,6 +30,7 @@ import { useCategories } from '@/hooks/use-categories'
 import { useCourses } from '@/hooks/use-courses'
 
 interface OnboardingData {
+  full_name: string
   college_id: string | null
   college_name: string // For custom college entry
   graduation_year_id: string | null
@@ -48,6 +49,7 @@ export function OnboardingForm() {
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<OnboardingData>({
+    full_name: '',
     college_id: null,
     college_name: '',
     graduation_year_id: null,
@@ -59,12 +61,53 @@ export function OnboardingForm() {
     selected_categories: [],
   })
   const [customCompany, setCustomCompany] = useState('')
+  const [loadingProfile, setLoadingProfile] = useState(true)
 
   // Use ref to store latest formData to avoid dependency issues
   const formDataRef = useRef(formData)
   useEffect(() => {
     formDataRef.current = formData
   }, [formData])
+
+  // Fetch user profile to pre-populate full_name (especially from Google)
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          // Get current profile to pre-populate full_name
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single()
+
+          // Pre-populate full_name from profile or Google metadata
+          const nameToUse = profile?.full_name || 
+                          user.user_metadata?.full_name || 
+                          user.user_metadata?.name || 
+                          user.user_metadata?.display_name ||
+                          user.user_metadata?.email?.split('@')[0] || 
+                          ''
+
+          if (nameToUse) {
+            setFormData(prev => ({
+              ...prev,
+              full_name: nameToUse
+            }))
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error)
+      } finally {
+        setLoadingProfile(false)
+      }
+    }
+
+    fetchUserProfile()
+  }, [])
 
   // Fetch data using custom hooks with real-time support
   const { colleges, loading: collegesLoading, error: collegesError } = useColleges()
@@ -201,8 +244,9 @@ export function OnboardingForm() {
         return
       }
 
-      // Update profile with college, graduation_year, companies, course, and phone
+      // Update profile with full_name, college, graduation_year, companies, course, and phone
       const profileUpdate: {
+        full_name: string
         college: string
         graduation_year: number
         target_companies: string[]
@@ -211,6 +255,7 @@ export function OnboardingForm() {
         course_name?: string | null
         updated_at: string
       } = {
+        full_name: currentFormData.full_name.trim(),
         college: collegeName,
         graduation_year: currentFormData.graduation_year,
         target_companies: companyNames,
@@ -382,6 +427,10 @@ export function OnboardingForm() {
     
     // Validation based on current step
     if (step === 1) {
+      if (!currentFormData.full_name || !currentFormData.full_name.trim()) {
+        toast.error('Please enter your full name')
+        return
+      }
       if (!currentFormData.college_name.trim()) {
         toast.error('Please enter your college name')
         return
@@ -585,6 +634,22 @@ export function OnboardingForm() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Full Name</Label>
+              <Input
+                id="full_name"
+                type="text"
+                placeholder="Enter your full name"
+                value={formData.full_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                required
+                disabled={loadingProfile}
+              />
+              {loadingProfile && (
+                <p className="text-xs text-muted-foreground">Loading your name...</p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="college">College/University Name</Label>
               <Input
@@ -903,6 +968,12 @@ export function OnboardingForm() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
+              <div>
+                <span className="text-sm font-medium text-muted-foreground">Full Name:</span>
+                <p className="text-foreground">
+                  {formData.full_name || 'Not provided'}
+                </p>
+              </div>
               <div>
                 <span className="text-sm font-medium text-muted-foreground">College:</span>
                 <p className="text-foreground">

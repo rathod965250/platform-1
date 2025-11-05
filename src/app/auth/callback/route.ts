@@ -11,12 +11,14 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code') // For OAuth flows
 
   // Create redirect URL without auth parameters
-  const redirectTo = requestUrl.clone()
+  const redirectTo = new URL(requestUrl.origin)
   redirectTo.pathname = next
-  redirectTo.searchParams.delete('token_hash')
-  redirectTo.searchParams.delete('type')
-  redirectTo.searchParams.delete('next')
-  redirectTo.searchParams.delete('code')
+  // Copy search params and remove auth-related ones
+  requestUrl.searchParams.forEach((value, key) => {
+    if (!['token_hash', 'type', 'next', 'code'].includes(key)) {
+      redirectTo.searchParams.set(key, value)
+    }
+  })
 
   // Handle PKCE flow (token_hash for email confirmation, password reset, etc.)
   if (token_hash && type) {
@@ -28,85 +30,135 @@ export async function GET(request: NextRequest) {
     })
 
     if (!error) {
-      redirectTo.searchParams.delete('next')
-      return NextResponse.redirect(redirectTo)
+      return NextResponse.redirect(redirectTo.toString())
     }
   }
 
   // Handle OAuth flow (code exchange)
   if (code) {
     const supabase = await createClient()
-    await supabase.auth.exchangeCodeForSession(code)
+    
+    // Exchange code for session
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (exchangeError) {
+      console.error('OAuth code exchange error:', exchangeError)
+      const errorUrl = new URL(`${requestUrl.origin}/auth/error`)
+      errorUrl.searchParams.set('error', exchangeError.message)
+      return NextResponse.redirect(errorUrl.toString())
+    }
 
-    // Check if user was created and update profile if needed
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      // Profile is automatically created by trigger, but we can verify
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .single()
+    // Get user after successful exchange
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      console.error('Error getting user after OAuth:', userError)
+      const errorUrl = new URL(`${requestUrl.origin}/auth/error`)
+      errorUrl.searchParams.set('error', 'Failed to retrieve user information')
+      return NextResponse.redirect(errorUrl.toString())
+    }
 
-      if (!profile) {
-        // If profile doesn't exist (shouldn't happen with trigger), create it
+    // Extract Google user metadata
+    const googleName = user.user_metadata?.full_name || 
+                      user.user_metadata?.name || 
+                      user.user_metadata?.display_name ||
+                      user.user_metadata?.email?.split('@')[0] || 
+                      ''
+    const googleEmail = user.email || user.user_metadata?.email || ''
+    const googleAvatar = user.user_metadata?.avatar_url || 
+                        user.user_metadata?.picture || 
+                        null
+
+    // Check if profile exists (should be created by trigger)
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', user.id)
+      .single()
+
+    // Update profile with Google metadata if needed
+    if (existingProfile) {
+      // Update profile if we have Google metadata that's missing
+      const updates: {
+        full_name?: string
+        email?: string
+        avatar_url?: string | null
+      } = {}
+
+      if (googleName && !existingProfile.full_name) {
+        updates.full_name = googleName
+      }
+      
+      if (googleEmail && !existingProfile.email) {
+        updates.email = googleEmail
+      }
+      
+      if (googleAvatar && !existingProfile.avatar_url) {
+        updates.avatar_url = googleAvatar
+      }
+
+      // Only update if there are changes
+      if (Object.keys(updates).length > 0) {
         await supabase
           .from('profiles')
-          .insert({
-            id: user.id,
-            email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-            role: 'student',
-          })
+          .update(updates)
+          .eq('id', user.id)
       }
+    } else {
+      // If profile doesn't exist (shouldn't happen with trigger), create it
+      await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: googleEmail,
+          full_name: googleName,
+          avatar_url: googleAvatar,
+          role: 'student',
+        })
     }
 
     // Check if user needs onboarding (new user or incomplete profile)
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('college, graduation_year, target_companies, phone, course_id, course_name')
-        .eq('id', user.id)
-        .single()
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('college, graduation_year, target_companies, phone, course_id, course_name')
+      .eq('id', user.id)
+      .single()
 
-      const { data: adaptiveStates } = await supabase
-        .from('adaptive_state')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1)
+    const { data: adaptiveStates } = await supabase
+      .from('adaptive_state')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
 
-      // Comprehensive onboarding completion check
-      const hasCollege = !!profile?.college
-      const hasGraduationYear = !!profile?.graduation_year
-      const hasCourse = !!(profile?.course_id || profile?.course_name)
-      const hasPhone = !!profile?.phone
-      const hasTargetCompanies = !!(
-        profile?.target_companies && 
-        Array.isArray(profile.target_companies) && 
-        profile.target_companies.length > 0
-      )
-      const hasAdaptiveState = !!(adaptiveStates && adaptiveStates.length > 0)
+    // Comprehensive onboarding completion check
+    const hasCollege = !!profile?.college
+    const hasGraduationYear = !!profile?.graduation_year
+    const hasCourse = !!(profile?.course_id || profile?.course_name)
+    const hasPhone = !!profile?.phone
+    const hasTargetCompanies = !!(
+      profile?.target_companies && 
+      Array.isArray(profile.target_companies) && 
+      profile.target_companies.length > 0
+    )
+    const hasAdaptiveState = !!(adaptiveStates && adaptiveStates.length > 0)
 
-      const isComplete = hasCollege && 
-                         hasGraduationYear && 
-                         hasCourse && 
-                         hasPhone && 
-                         hasTargetCompanies && 
-                         hasAdaptiveState
+    const isComplete = hasCollege && 
+                       hasGraduationYear && 
+                       hasCourse && 
+                       hasPhone && 
+                       hasTargetCompanies && 
+                       hasAdaptiveState
 
-      // If onboarding is incomplete, redirect to onboarding
-      if (!isComplete) {
-        redirectTo.pathname = '/onboarding'
-        redirectTo.searchParams.delete('code')
-        return NextResponse.redirect(redirectTo)
-      }
+    // If onboarding is incomplete, redirect to onboarding
+    if (!isComplete) {
+      const onboardingUrl = new URL(`${requestUrl.origin}/onboarding`)
+      return NextResponse.redirect(onboardingUrl.toString())
     }
 
-    redirectTo.searchParams.delete('code')
-    return NextResponse.redirect(redirectTo)
+    return NextResponse.redirect(redirectTo.toString())
   }
 
   // If neither token_hash nor code, redirect to error page
-  redirectTo.pathname = '/auth/error'
-  return NextResponse.redirect(redirectTo)
+  const errorUrl = new URL(`${requestUrl.origin}/auth/error`)
+  return NextResponse.redirect(errorUrl.toString())
 }
