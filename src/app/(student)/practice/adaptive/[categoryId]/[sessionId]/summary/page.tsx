@@ -111,16 +111,102 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
     console.error('Error fetching recommendations:', error)
   }
 
-  // Fetch metrics for detailed breakdown
+  // Fetch metrics for detailed breakdown with question_topic
   const { data: metrics } = await supabase
     .from('user_metrics')
     .select(`
       *,
-      question:questions(question_text, question_type),
+      question:questions("question text", question_type, question_topic, difficulty, explanation, "correct answer"),
       subcategory:subcategories(name)
     `)
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true })
+
+  // Calculate weak area analysis based on question_topic
+  const weakAreas: Array<{
+    topic: string
+    incorrectCount: number
+    correctCount: number
+    totalAttempted: number
+    accuracy: number
+    errorPercentage: number
+  }> = []
+
+  if (metrics && metrics.length > 0) {
+    const topicStats = new Map<string, { incorrect: number; correct: number; total: number }>()
+    
+    metrics.forEach((metric: any) => {
+      if (metric.is_correct !== null && metric.question?.question_topic) {
+        const topic = metric.question.question_topic
+        const current = topicStats.get(topic) || { incorrect: 0, correct: 0, total: 0 }
+        
+        current.total += 1
+        if (metric.is_correct) {
+          current.correct += 1
+        } else {
+          current.incorrect += 1
+        }
+        
+        topicStats.set(topic, current)
+      }
+    })
+
+    // Calculate accuracy and error percentage for each topic
+    const totalErrors = metrics.filter((m: any) => m.is_correct === false).length
+    
+    topicStats.forEach((stats, topic) => {
+      const accuracy = stats.total > 0 ? (stats.correct / stats.total) * 100 : 0
+      const errorPercentage = totalErrors > 0 ? (stats.incorrect / totalErrors) * 100 : 0
+      
+      if (stats.incorrect > 0) {
+        weakAreas.push({
+          topic,
+          incorrectCount: stats.incorrect,
+          correctCount: stats.correct,
+          totalAttempted: stats.total,
+          accuracy,
+          errorPercentage,
+        })
+      }
+    })
+
+    // Sort by incorrect count (descending) and accuracy (ascending) to get top weak areas
+    weakAreas.sort((a, b) => {
+      if (b.incorrectCount !== a.incorrectCount) {
+        return b.incorrectCount - a.incorrectCount
+      }
+      return a.accuracy - b.accuracy
+    })
+  }
+
+  // Calculate additional statistics
+  // Handle both boolean and null values for is_correct
+  const attemptedCount = metrics?.filter((m: any) => m.is_correct !== null && m.is_correct !== undefined).length || 0
+  const notAttemptedCount = Math.max(0, (session.total_questions || metrics?.length || 0) - attemptedCount)
+  const skippedCount = session.skipped_count || 0
+  // Check for both boolean false and explicit false values
+  const incorrectCount = metrics?.filter((m: any) => m.is_correct === false || m.is_correct === 0).length || 0
+  // Check for both boolean true and explicit true values
+  const correctCount = metrics?.filter((m: any) => m.is_correct === true || m.is_correct === 1).length || 0
+  
+  // Get mastery progression
+  const masteryProgression = metrics
+    ?.filter((m: any) => m.mastery_score_before !== null || m.mastery_score_after !== null)
+    .map((m: any) => ({
+      before: m.mastery_score_before,
+      after: m.mastery_score_after,
+      timestamp: m.created_at,
+    })) || []
+
+  // Get final mastery score
+  const finalMastery = masteryProgression.length > 0 
+    ? masteryProgression[masteryProgression.length - 1].after 
+    : sessionStats?.avg_accuracy ? sessionStats.avg_accuracy / 100 : 0.5
+
+  // Get starting mastery score
+  const startingMastery = masteryProgression.length > 0 
+    ? masteryProgression[0].before 
+    : 0.5
 
   return (
     <PracticeSummary
@@ -129,6 +215,15 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
       metrics={metrics || []}
       recommendations={recommendations}
       categoryId={categoryId}
+      weakAreas={weakAreas.slice(0, 5)} // Top 5 weak areas
+      attemptedCount={attemptedCount}
+      notAttemptedCount={notAttemptedCount}
+      skippedCount={skippedCount}
+      incorrectCount={incorrectCount}
+      correctCount={correctCount}
+      finalMastery={finalMastery}
+      startingMastery={startingMastery}
+      masteryChange={finalMastery - startingMastery}
     />
   )
 }

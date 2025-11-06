@@ -14,12 +14,13 @@ interface PageProps {
   searchParams: Promise<{
     sessionId?: string
     topics?: string
+    questionCount?: string
   }>
 }
 
 export default async function AdaptivePracticePage({ params, searchParams }: PageProps) {
   const { categoryId } = await params
-  const { sessionId, topics } = await searchParams
+  const { sessionId, topics, questionCount } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -74,6 +75,7 @@ export default async function AdaptivePracticePage({ params, searchParams }: Pag
       sessionId={sessionId}
       selectedSubcategories={selectedSubcategories}
       subcategories={subcategories || []}
+      questionCount={questionCount ? parseInt(questionCount) : 30}
     />
   )
 }

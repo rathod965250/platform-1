@@ -46,15 +46,25 @@ export function PracticeCategoryCard({
   
   const Icon = iconMap[iconName] || Brain
 
-  // Calculate mastery score (0-100%)
-  const masteryScore = adaptiveState
-    ? typeof adaptiveState.mastery_score === 'number'
+  // Calculate mastery score strictly based on performance
+  // If adaptiveState exists, use it (it should be calculated from performance)
+  // Otherwise, calculate from totalQuestions and categoryAccuracy
+  // If no performance data exists, default to 1.0 (100% - perfect score for new users)
+  let masteryScore: number
+  if (adaptiveState) {
+    masteryScore = typeof adaptiveState.mastery_score === 'number'
       ? adaptiveState.mastery_score
-      : parseFloat(String(adaptiveState.mastery_score || 0))
-    : 0
+      : parseFloat(String(adaptiveState.mastery_score || 1.0))
+  } else if (totalQuestions > 0 && categoryAccuracy > 0) {
+    // Calculate from performance data if available
+    masteryScore = categoryAccuracy / 100
+  } else {
+    // New users with no performance data get perfect mastery score (100%)
+    masteryScore = 1.0
+  }
 
   const masteryPercentage = masteryScore * 100
-  const currentDifficulty = adaptiveState?.current_difficulty || undefined
+  const currentDifficulty = adaptiveState?.current_difficulty || 'medium'
 
   // Calculate recent accuracy
   const recentAccuracy = adaptiveState?.recent_accuracy || []
@@ -94,47 +104,48 @@ export function PracticeCategoryCard({
           </p>
         )}
 
-        {/* Mastery Progress */}
-        {hasProgress && (
-          <div className="space-y-2.5 sm:space-y-3 md:space-y-4 mb-3 sm:mb-4">
-            <div>
-              <div className="flex items-center justify-between text-xs sm:text-sm md:text-base mb-2 sm:mb-2.5 font-sans">
-                <span className="text-muted-foreground font-medium">Mastery Score</span>
-                <span className="font-bold text-foreground">{masteryPercentage.toFixed(0)}%</span>
-              </div>
-              <Progress value={masteryPercentage} className="h-2 sm:h-2.5 md:h-3" />
+        {/* Mastery Progress - Always shown with default 50% for new users */}
+        <div className="space-y-2.5 sm:space-y-3 md:space-y-4 mb-3 sm:mb-4">
+          <div>
+            <div className="flex items-center justify-between text-xs sm:text-sm md:text-base mb-2 sm:mb-2.5 font-sans">
+              <span className="text-muted-foreground font-medium">Mastery Score</span>
+              <span className="font-bold text-foreground">{masteryPercentage.toFixed(0)}%</span>
             </div>
+            <Progress value={masteryPercentage} className="h-2 sm:h-2.5 md:h-3" />
+          </div>
 
-            <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-              {recentAccuracyAvg > 0 && (
+          {/* Show additional metrics only if user has progress */}
+          {hasProgress && (
+            <>
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                {recentAccuracyAvg > 0 && (
+                  <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                    <span className="font-semibold">{recentAccuracyAvg.toFixed(0)}%</span> recent accuracy
+                  </div>
+                )}
+                
+                {avgTime > 0 && (
+                  <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                    Avg: <span className="font-semibold">{avgTimeFormatted}</span>
+                  </div>
+                )}
+              </div>
+
+              {totalQuestions > 0 && (
                 <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
-                  <span className="font-semibold">{recentAccuracyAvg.toFixed(0)}%</span> recent accuracy
+                  <span className="font-semibold">{totalQuestions}</span> question{totalQuestions !== 1 ? 's' : ''} answered
                 </div>
               )}
-              
-              {avgTime > 0 && (
-                <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
-                  Avg: <span className="font-semibold">{avgTimeFormatted}</span>
-                </div>
-              )}
+            </>
+          )}
+
+          {/* Show message for new users without progress */}
+          {!hasProgress && (
+            <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans text-center py-2">
+              Start practicing to improve your mastery score
             </div>
-
-            {totalQuestions > 0 && (
-              <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
-                <span className="font-semibold">{totalQuestions}</span> question{totalQuestions !== 1 ? 's' : ''} answered
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* No Progress State */}
-        {!hasProgress && (
-          <div className="mb-3 sm:mb-4 py-3 sm:py-3.5 md:py-4 px-3 sm:px-4 md:px-5 rounded-lg bg-muted/50 border-2 border-dashed border-border">
-            <p className="text-xs sm:text-sm md:text-base text-muted-foreground text-center font-sans leading-relaxed">
-              Start practicing to see your progress
-            </p>
-          </div>
-        )}
+          )}
+        </div>
 
         <Button
           asChild

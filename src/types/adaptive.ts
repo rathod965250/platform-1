@@ -9,7 +9,7 @@ export interface AdaptiveQuestion {
   id: string
   text: string
   type: 'mcq' | 'true_false' | 'fill_blank'
-  options: Record<string, string>
+  options: any // Can be Record<string, string> or { options: string[] } depending on source
   difficulty: 'easy' | 'medium' | 'hard'
   subcategory: {
     id: string
@@ -17,7 +17,7 @@ export interface AdaptiveQuestion {
     category: {
       name: string
     }
-  }
+  } | null
 }
 
 export interface AdaptiveAnalytics {

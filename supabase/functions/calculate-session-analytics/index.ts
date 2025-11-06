@@ -20,8 +20,11 @@ serve(async (req: Request) => {
   }
 
   try {
+    // @ts-ignore
     const supabaseClient = createClient(
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
@@ -212,10 +215,10 @@ serve(async (req: Request) => {
         status: 200,
       }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in calculate-session-analytics:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error?.message || 'An unexpected error occurred' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

@@ -80,6 +80,57 @@ export default async function PracticePage() {
     .order('completed_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
+  // Fetch test attempts with category information for performance calculation
+  const { data: testAttemptsWithCategories } = await supabase
+    .from('test_attempts')
+    .select(`
+      id,
+      score,
+      total_questions,
+      correct_answers,
+      test:tests(
+        id,
+        category_id,
+        total_marks
+      )
+    `)
+    .eq('user_id', user.id)
+    .not('submitted_at', 'is', null)
+
+  // Fetch attempt answers for category-specific performance
+  const attemptIds = testAttemptsWithCategories?.map(ta => ta.id) || []
+  const { data: attemptAnswers } = attemptIds.length > 0
+    ? await supabase
+        .from('attempt_answers')
+        .select(`
+          is_correct,
+          question:questions(
+            subcategory:subcategories(
+              category_id
+            )
+          )
+        `)
+        .in('attempt_id', attemptIds)
+        .limit(10000)
+    : { data: null }
+
+  // Fetch session answers for category-specific performance
+  const sessionIds = practiceSessions?.map(ps => ps.id) || []
+  const { data: sessionAnswers } = sessionIds.length > 0
+    ? await supabase
+        .from('session_answers')
+        .select(`
+          is_correct,
+          question:questions(
+            subcategory:subcategories(
+              category_id
+            )
+          )
+        `)
+        .in('session_id', sessionIds)
+        .limit(10000)
+    : { data: null }
+
   // Fetch recent sessions with category names
   const recentSessionsWithCategories = await Promise.all(
     (practiceSessions?.slice(0, 5) || []).map(async (session) => {
@@ -126,17 +177,6 @@ export default async function PracticePage() {
   const totalCorrect = practiceSessions?.reduce((sum, session) => sum + (session.correct_answers || 0), 0) || 0
   const accuracy = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0
 
-  // Calculate overall mastery (average of all adaptive states)
-  const masteryScores = adaptiveStates?.map(state => {
-    const score = typeof state.mastery_score === 'number' 
-      ? state.mastery_score 
-      : parseFloat(String(state.mastery_score || 0))
-    return score
-  }) || []
-  const overallMastery = masteryScores.length > 0
-    ? masteryScores.reduce((sum, score) => sum + score, 0) / masteryScores.length
-    : 0
-
   // Get current streak from user analytics
   const currentStreak = userAnalytics?.[0]?.current_streak_days || 0
 
@@ -159,15 +199,42 @@ export default async function PracticePage() {
     .eq('user_id', user.id)
     .limit(5000) // Limit for performance
 
-  // Calculate category-wise performance
+  // Calculate category-wise performance from all sources
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
+  // Add performance from user_metrics
   allUserMetrics?.forEach((metric) => {
     const categoryId = metric.question?.subcategory?.category_id
     if (categoryId) {
       const current = categoryPerformanceMap.get(categoryId) || { correct: 0, total: 0 }
       current.total += 1
       if (metric.is_correct) {
+        current.correct += 1
+      }
+      categoryPerformanceMap.set(categoryId, current)
+    }
+  })
+
+  // Add performance from attempt_answers (test attempts)
+  attemptAnswers?.forEach((answer) => {
+    const categoryId = answer.question?.subcategory?.category_id
+    if (categoryId) {
+      const current = categoryPerformanceMap.get(categoryId) || { correct: 0, total: 0 }
+      current.total += 1
+      if (answer.is_correct) {
+        current.correct += 1
+      }
+      categoryPerformanceMap.set(categoryId, current)
+    }
+  })
+
+  // Add performance from session_answers (practice sessions)
+  sessionAnswers?.forEach((answer) => {
+    const categoryId = answer.question?.subcategory?.category_id
+    if (categoryId) {
+      const current = categoryPerformanceMap.get(categoryId) || { correct: 0, total: 0 }
+      current.total += 1
+      if (answer.is_correct) {
         current.correct += 1
       }
       categoryPerformanceMap.set(categoryId, current)
@@ -184,14 +251,19 @@ export default async function PracticePage() {
   }> = []
 
       categories?.forEach((category) => {
-        const state = adaptiveStateMap.get(category.id)
         const metrics = categoryPerformanceMap.get(category.id)
         
-        const mastery = state
-          ? typeof state.mastery_score === 'number'
-            ? state.mastery_score
-            : parseFloat(String(state.mastery_score || 0))
-          : 0
+        // Calculate mastery score strictly based on performance
+        // If user has performance data, calculate accuracy as mastery score (0-1 range)
+        // If no performance data exists, default to 1.0 (100% - perfect score for new users)
+        let mastery: number
+        if (metrics && metrics.total > 0) {
+          // Calculate mastery based on actual performance (accuracy as decimal 0-1)
+          mastery = metrics.correct / metrics.total
+        } else {
+          // New users with no performance data get perfect mastery score (100%)
+          mastery = 1.0
+        }
 
     const accuracy = metrics && metrics.total > 0
       ? (metrics.correct / metrics.total) * 100
@@ -205,6 +277,12 @@ export default async function PracticePage() {
       total_questions: metrics?.total || 0,
     })
   })
+
+  // Calculate overall mastery based on performance data
+  // Average of all category mastery scores (calculated from performance)
+  const overallMastery = categoryPerformance.length > 0
+    ? categoryPerformance.reduce((sum, cat) => sum + cat.mastery_score, 0) / categoryPerformance.length
+    : 1.0 // Perfect mastery (100%) for new users with no performance data
 
   // Sort by mastery score - only show if there's actual data
   const strengths = [...categoryPerformance]
@@ -398,12 +476,27 @@ export default async function PracticePage() {
                   // Get category performance metrics
                   const catMetrics = categoryPerformanceMap.get(category.id)
                   
+                  // Get calculated mastery score from categoryPerformance
+                  const catPerformance = categoryPerformance.find(cp => cp.category_id === category.id)
+                  const calculatedMastery = catPerformance?.mastery_score || 1.0
+                  
+                  // Create adaptive state with performance-based mastery score
+                  const performanceBasedState = state ? {
+                    ...state,
+                    mastery_score: calculatedMastery
+                  } : {
+                    mastery_score: calculatedMastery,
+                    current_difficulty: 'medium' as const,
+                    recent_accuracy: null,
+                    avg_time_seconds: null
+                  }
+
                   return (
                     <PracticeCategoryCard
                       key={category.id}
                       category={category}
                       iconName={iconName}
-                      adaptiveState={state || undefined}
+                      adaptiveState={performanceBasedState}
                       totalQuestions={catMetrics?.total || 0}
                       categoryAccuracy={catMetrics && catMetrics.total > 0
                         ? (catMetrics.correct / catMetrics.total) * 100

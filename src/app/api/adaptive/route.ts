@@ -22,6 +22,11 @@ export async function POST(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     const { data: { session } } = await supabase.auth.getSession()
 
+    // Verify we have a valid session
+    if (!session?.access_token) {
+      return NextResponse.json({ error: 'No valid session found' }, { status: 401 })
+    }
+
     // Call Supabase Edge Function with timeout
     const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`
     const controller = new AbortController()
@@ -32,7 +37,8 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token || supabaseAnonKey}`,
+          // Use the user's access token for authentication
+          Authorization: `Bearer ${session.access_token}`,
           apikey: supabaseAnonKey,
         },
         body: JSON.stringify({
