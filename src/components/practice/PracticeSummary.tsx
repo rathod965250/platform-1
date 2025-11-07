@@ -52,6 +52,38 @@ interface PracticeSummaryProps {
     accuracy: number
     errorPercentage: number
   }>
+  strongAreas: Array<{
+    topic: string
+    correctCount: number
+    incorrectCount: number
+    totalAttempted: number
+    accuracy: number
+    confidenceScore: number
+  }>
+  performanceAnalysis: Array<{
+    subcategoryId: string | null
+    subcategoryName: string
+    topicName: string | null
+    totalQuestions: number
+    attemptedQuestions: number
+    correctAnswers: number
+    incorrectAnswers: number
+    skippedQuestions: number
+    accuracy: number
+    errorRate: number
+    totalTime: number
+    avgTime: number
+    easyTotal: number
+    easyCorrect: number
+    mediumTotal: number
+    mediumCorrect: number
+    hardTotal: number
+    hardCorrect: number
+    isStrongArea: boolean
+    isWeakArea: boolean
+    confidenceScore: number
+  }>
+  topicMasteryData: any[]
   attemptedCount: number
   notAttemptedCount: number
   skippedCount: number
@@ -69,6 +101,9 @@ export function PracticeSummary({
   recommendations,
   categoryId,
   weakAreas,
+  strongAreas,
+  performanceAnalysis,
+  topicMasteryData,
   attemptedCount,
   notAttemptedCount,
   skippedCount,
@@ -923,6 +958,267 @@ export function PracticeSummary({
             </CardContent>
           )}
         </Card>
+
+        {/* Weak & Strong Areas Analysis */}
+        {(weakAreas.length > 0 || strongAreas.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-3 sm:mb-4 md:mb-6 lg:mb-8">
+            {/* Weak Areas - Areas for Improvement */}
+            {weakAreas.length > 0 && (
+              <Card className="border-destructive/20 bg-destructive/5 dark:bg-destructive/10">
+                <CardHeader className="pb-2 sm:pb-3">
+                  <CardTitle className="text-sm sm:text-base md:text-lg font-semibold text-foreground flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                    Areas for Improvement
+                  </CardTitle>
+                  <CardDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+                    Topics where you need more practice (accuracy &lt; 50%)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 sm:space-y-3">
+                  {weakAreas.map((area, index) => (
+                    <div
+                      key={index}
+                      className="p-2.5 sm:p-3 md:p-4 rounded-lg border border-destructive/30 bg-card hover:bg-destructive/5 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-xs sm:text-sm md:text-base font-semibold text-foreground truncate">
+                            {area.topic}
+                          </h4>
+                          <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-0.5">
+                            {area.correctCount}/{area.totalAttempted} correct
+                          </p>
+                        </div>
+                        <Badge variant="destructive" className="text-[10px] sm:text-xs flex-shrink-0">
+                          {area.accuracy.toFixed(0)}%
+                        </Badge>
+                      </div>
+                      <Progress value={area.accuracy} className="h-1.5 sm:h-2 mb-2" />
+                      <div className="flex items-center justify-between text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <XCircle className="h-3 w-3 text-destructive" />
+                          {area.incorrectCount} incorrect
+                        </span>
+                        <span className="text-destructive font-medium">
+                          {area.errorPercentage.toFixed(1)}% of total errors
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    onClick={handlePracticeWeakAreas}
+                    variant="destructive"
+                    size="sm"
+                    className="w-full mt-2 text-xs sm:text-sm"
+                  >
+                    <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5" />
+                    Practice These Topics
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Strong Areas - Your Strengths */}
+            {strongAreas.length > 0 && (
+              <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
+                <CardHeader className="pb-2 sm:pb-3">
+                  <CardTitle className="text-sm sm:text-base md:text-lg font-semibold text-foreground flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
+                    Your Strengths
+                  </CardTitle>
+                  <CardDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+                    Topics where you excel (accuracy ≥ 80%)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 sm:space-y-3">
+                  {strongAreas.map((area, index) => (
+                    <div
+                      key={index}
+                      className="p-2.5 sm:p-3 md:p-4 rounded-lg border border-green-200 dark:border-green-800 bg-card hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-xs sm:text-sm md:text-base font-semibold text-foreground truncate">
+                            {area.topic}
+                          </h4>
+                          <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-0.5">
+                            {area.correctCount}/{area.totalAttempted} correct
+                          </p>
+                        </div>
+                        <Badge className="bg-green-600 hover:bg-green-700 text-[10px] sm:text-xs flex-shrink-0">
+                          {area.accuracy.toFixed(0)}%
+                        </Badge>
+                      </div>
+                      <Progress value={area.accuracy} className="h-1.5 sm:h-2 mb-2" />
+                      <div className="flex items-center justify-between text-[9px] sm:text-[10px] md:text-xs">
+                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {area.correctCount} correct
+                        </span>
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Zap className="h-3 w-3 text-yellow-500" />
+                          Confidence: {(area.confidenceScore * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="mt-2 p-2 sm:p-3 rounded-lg bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <p className="text-[10px] sm:text-xs md:text-sm text-green-700 dark:text-green-300 flex items-center gap-1.5">
+                      <Trophy className="h-3 w-3 sm:h-4 sm:w-4" />
+                      Great job! Keep practicing to maintain your strengths.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Topic Mastery Map - Eye-Catching Granular Insights */}
+        {topicMasteryData.length > 0 && (
+          <Card className="mb-3 sm:mb-4 md:mb-6 lg:mb-8 bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5 border-primary/20">
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-foreground flex items-center gap-2">
+                <Target className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                Topic Mastery Map
+              </CardTitle>
+              <CardDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+                Your mastery level for each specific problem type
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                {topicMasteryData.map((topic: any, index: number) => {
+                  const masteryColor = 
+                    topic.mastery_level === 'master' ? 'from-purple-500 to-purple-700' :
+                    topic.mastery_level === 'expert' ? 'from-blue-500 to-blue-700' :
+                    topic.mastery_level === 'advanced' ? 'from-green-500 to-green-700' :
+                    topic.mastery_level === 'intermediate' ? 'from-yellow-500 to-yellow-700' :
+                    'from-gray-400 to-gray-600'
+                  
+                  const masteryIcon = 
+                    topic.mastery_level === 'master' ? '👑' :
+                    topic.mastery_level === 'expert' ? '🏆' :
+                    topic.mastery_level === 'advanced' ? '⭐' :
+                    topic.mastery_level === 'intermediate' ? '📈' :
+                    '🌱'
+                  
+                  const masteryLabel = 
+                    topic.mastery_level === 'master' ? 'MASTER' :
+                    topic.mastery_level === 'expert' ? 'EXPERT' :
+                    topic.mastery_level === 'advanced' ? 'ADVANCED' :
+                    topic.mastery_level === 'intermediate' ? 'INTERMEDIATE' :
+                    'BEGINNER'
+                  
+                  return (
+                    <div
+                      key={index}
+                      className="relative p-3 sm:p-4 rounded-xl border-2 border-border bg-card hover:shadow-lg transition-all duration-300 overflow-hidden group"
+                    >
+                      {/* Gradient Background */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${masteryColor} opacity-5 group-hover:opacity-10 transition-opacity`} />
+                      
+                      {/* Content */}
+                      <div className="relative z-10">
+                        {/* Header with Mastery Badge */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs sm:text-sm md:text-base font-bold text-foreground line-clamp-2">
+                              {topic.topic_name}
+                            </h4>
+                            {topic.topic_type && (
+                              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                                {topic.topic_type}
+                              </p>
+                            )}
+                          </div>
+                          <div className={`flex-shrink-0 px-2 py-1 rounded-full bg-gradient-to-r ${masteryColor} text-white text-[9px] sm:text-[10px] font-bold flex items-center gap-1`}>
+                            <span>{masteryIcon}</span>
+                            <span>{masteryLabel}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          <div className="text-center p-1.5 sm:p-2 rounded-lg bg-muted/50">
+                            <div className="text-xs sm:text-sm md:text-base font-bold text-foreground">
+                              {topic.accuracy_percentage.toFixed(0)}%
+                            </div>
+                            <div className="text-[8px] sm:text-[9px] md:text-[10px] text-muted-foreground">Accuracy</div>
+                          </div>
+                          <div className="text-center p-1.5 sm:p-2 rounded-lg bg-muted/50">
+                            <div className="text-xs sm:text-sm md:text-base font-bold text-foreground">
+                              {topic.attempted_questions}
+                            </div>
+                            <div className="text-[8px] sm:text-[9px] md:text-[10px] text-muted-foreground">Attempts</div>
+                          </div>
+                          <div className="text-center p-1.5 sm:p-2 rounded-lg bg-muted/50">
+                            <div className="text-xs sm:text-sm md:text-base font-bold text-foreground">
+                              {topic.mastery_score.toFixed(0)}
+                            </div>
+                            <div className="text-[8px] sm:text-[9px] md:text-[10px] text-muted-foreground">Score</div>
+                          </div>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="mb-2">
+                          <Progress value={topic.mastery_score} className="h-2" />
+                        </div>
+                        
+                        {/* Additional Stats */}
+                        <div className="flex items-center justify-between text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                            {topic.correct_answers} correct
+                          </span>
+                          {topic.longest_streak > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-3 w-3 text-yellow-500" />
+                              {topic.longest_streak} streak
+                            </span>
+                          )}
+                          {topic.best_time_seconds && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3 text-blue-500" />
+                              {topic.best_time_seconds}s best
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              
+              {/* Mastery Legend */}
+              <div className="p-3 sm:p-4 rounded-lg bg-muted/30 border border-border">
+                <h4 className="text-xs sm:text-sm font-semibold text-foreground mb-2">Mastery Levels</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    <span>🌱</span>
+                    <span className="text-muted-foreground">Beginner (&lt;3 attempts)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    <span>📈</span>
+                    <span className="text-muted-foreground">Intermediate (75%+)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    <span>⭐</span>
+                    <span className="text-muted-foreground">Advanced (85%+)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    <span>🏆</span>
+                    <span className="text-muted-foreground">Expert (92%+)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                    <span>👑</span>
+                    <span className="text-muted-foreground">Master (98%+)</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Performance Trends */}
         {metrics.length > 4 && (

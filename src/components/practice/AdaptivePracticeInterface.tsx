@@ -98,6 +98,7 @@ export function AdaptivePracticeInterface({
   const [solutionSteps, setSolutionSteps] = useState<string | null>(null)
   const [formulaUsed, setFormulaUsed] = useState<string | null>(null)
   const [markedQuestions, setMarkedQuestions] = useState<Set<string>>(new Set())
+  const [skippedQuestions, setSkippedQuestions] = useState<Set<string>>(new Set())
   const [questionHistory, setQuestionHistory] = useState<QuestionHistory[]>([])
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [reportErrorType, setReportErrorType] = useState<string>('')
@@ -702,7 +703,7 @@ export function AdaptivePracticeInterface({
           is_correct: actualCorrect,
           time_taken_seconds: timeTaken,
           difficulty: currentQuestion.difficulty,
-        }).then(({ error }) => {
+        }).then(({ error }: { error: any }) => {
           if (error) {
             console.error('Error saving to user_metrics:', error)
           } else {
@@ -768,35 +769,58 @@ export function AdaptivePracticeInterface({
     await fetchNextQuestion(lastQuestionData)
   }
 
-  const handleSkipQuestion = () => {
+  const handleMoveToNext = () => {
+    // Move to next question WITHOUT marking as skipped (just unanswered)
     if (questionsLoaded && currentQuestionIndex < allQuestions.length - 1) {
       const nextIndex = currentQuestionIndex + 1
       const nextQuestion = allQuestions[nextIndex]
-      const historyItem = questionHistory.find(h => h.id === nextQuestion.id)
       
       setCurrentQuestionIndex(nextIndex)
       setCurrentQuestion(nextQuestion)
-      
-      // Clear current answer and feedback
       setSelectedAnswer(null)
       setShowFeedback(false)
       setIsCorrect(null)
+      setHints(null)
+      setSolutionSteps(null)
+      setFormulaUsed(null)
+      fetchQuestionDetails(nextQuestion.id)
+      setQuestionStartTime(Date.now())
       setShowHints(false)
       setShowCorrectOptions(false)
+      setAnalytics((prev) => ({
+        ...prev,
+        questions_answered: nextIndex,
+      }))
       
-      // If next question was already answered, restore its state
-      if (historyItem?.hasAnswer) {
-        setShowFeedback(true)
-        setIsCorrect(historyItem.isCorrect)
-        fetchQuestionDetails(nextQuestion.id)
-      } else {
-        setHints(null)
-        setSolutionSteps(null)
-        setFormulaUsed(null)
-        fetchQuestionDetails(nextQuestion.id)
+      toast.info('Moved to next question')
+    } else {
+      toast.info('No more questions available')
+    }
+  }
+
+  const handleSkipQuestion = () => {
+    // Mark current question as SKIPPED (orange) and move to next
+    if (questionsLoaded && currentQuestionIndex < allQuestions.length - 1) {
+      // Mark current question as skipped
+      if (currentQuestion) {
+        setSkippedQuestions(prev => new Set(prev).add(currentQuestion.id))
       }
       
+      const nextIndex = currentQuestionIndex + 1
+      const nextQuestion = allQuestions[nextIndex]
+      
+      setCurrentQuestionIndex(nextIndex)
+      setCurrentQuestion(nextQuestion)
+      setSelectedAnswer(null)
+      setShowFeedback(false)
+      setIsCorrect(null)
+      setHints(null)
+      setSolutionSteps(null)
+      setFormulaUsed(null)
+      fetchQuestionDetails(nextQuestion.id)
       setQuestionStartTime(Date.now())
+      setShowHints(false)
+      setShowCorrectOptions(false)
       setAnalytics((prev) => ({
         ...prev,
         questions_answered: nextIndex,
@@ -819,7 +843,6 @@ export function AdaptivePracticeInterface({
       
       // Restore answer if previously answered
       if (historyItem?.hasAnswer) {
-        // Restore feedback state if answer was submitted
         setShowFeedback(true)
         setIsCorrect(historyItem.isCorrect)
         // We'll need to fetch the correct answer and explanation
@@ -925,11 +948,35 @@ export function AdaptivePracticeInterface({
     try {
       const supabase = createClient()
       
-      // Calculate final statistics from question history
+      // Calculate comprehensive statistics from question history
       const totalAttempted = questionHistory.filter(q => q.hasAnswer).length
       const totalCorrect = questionHistory.filter(q => q.isCorrect === true).length
       const totalIncorrect = questionHistory.filter(q => q.isCorrect === false).length
-      const totalSkipped = allQuestions.length - totalAttempted
+      const totalSkipped = skippedQuestions.size
+      const totalUnanswered = allQuestions.length - totalAttempted - totalSkipped
+      
+      // Calculate average time per attempted question
+      const avgTimeSeconds = totalAttempted > 0 ? Math.round(timer / totalAttempted) : 0
+      
+      // Calculate difficulty breakdown
+      const difficultyStats = {
+        easy: { total: 0, correct: 0 },
+        medium: { total: 0, correct: 0 },
+        hard: { total: 0, correct: 0 },
+      }
+      
+      allQuestions.forEach((q) => {
+        const difficulty = q.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard'
+        if (difficultyStats[difficulty]) {
+          difficultyStats[difficulty].total++
+          
+          // Check if this question was answered correctly
+          const historyItem = questionHistory.find(h => h.id === q.id)
+          if (historyItem?.isCorrect === true) {
+            difficultyStats[difficulty].correct++
+          }
+        }
+      })
       
       console.log('=== ENDING PRACTICE SESSION ===')
       console.log('Session ID:', sessionId)
@@ -940,10 +987,13 @@ export function AdaptivePracticeInterface({
         totalCorrect,
         totalIncorrect,
         totalSkipped,
+        totalUnanswered,
+        avgTimeSeconds,
         timer,
+        difficultyStats,
       })
       
-      // Update practice session with final stats
+      // Update practice session with comprehensive stats
       const { data: updateData, error: updateError } = await supabase
         .from('practice_sessions')
         .update({
@@ -951,7 +1001,15 @@ export function AdaptivePracticeInterface({
           correct_answers: totalCorrect,
           incorrect_answers: totalIncorrect,
           skipped_count: totalSkipped,
+          unanswered_count: totalUnanswered,
           time_taken_seconds: timer,
+          avg_time_seconds: avgTimeSeconds,
+          easy_questions: difficultyStats.easy.total,
+          easy_correct: difficultyStats.easy.correct,
+          medium_questions: difficultyStats.medium.total,
+          medium_correct: difficultyStats.medium.correct,
+          hard_questions: difficultyStats.hard.total,
+          hard_correct: difficultyStats.hard.correct,
           completed_at: new Date().toISOString(),
         })
         .eq('id', sessionId)
@@ -968,7 +1026,7 @@ export function AdaptivePracticeInterface({
       // Verify data was saved
       const { data: verifyData, error: verifyError } = await supabase
         .from('practice_sessions')
-        .select('total_questions, correct_answers, incorrect_answers, skipped_count')
+        .select('*')
         .eq('id', sessionId)
         .single()
       
@@ -1460,6 +1518,17 @@ export function AdaptivePracticeInterface({
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={handleMoveToNext}
+                          disabled={submitting || currentQuestionIndex >= allQuestions.length - 1}
+                          className="flex-shrink-0"
+                        >
+                          <ChevronRight className="h-4 w-4 mr-1.5" />
+                          Next
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={handleSkipQuestion}
                           disabled={submitting || currentQuestionIndex >= allQuestions.length - 1}
                           className="flex-shrink-0"
@@ -1590,13 +1659,14 @@ export function AdaptivePracticeInterface({
                       const isCurrent = index === currentQuestionIndex && !showFeedback
                       const isAnswered = historyItem?.hasAnswer || false
                       const isMarked = markedQuestions.has(q.id)
+                      const isSkipped = skippedQuestions.has(q.id)
                       const isCorrect = historyItem?.isCorrect
                       
                       let buttonClass = 'relative p-2 rounded-md border-2 transition-all hover:scale-105 text-xs font-semibold cursor-pointer overflow-hidden '
                       let hasSplitColor = false
                       let splitColorClass = ''
                       
-                      // Priority order: Current > Correct+Marked > Wrong+Marked > Correct > Wrong > Marked > Unanswered
+                      // Priority order: Current > Correct+Marked > Wrong+Marked > Correct > Wrong > Marked > Skipped > Unanswered
                       if (isCurrent) {
                         // Current question - show blue with pulse
                         buttonClass += 'border-primary bg-primary/20 ring-2 ring-primary/30 animate-pulse'
@@ -1619,6 +1689,9 @@ export function AdaptivePracticeInterface({
                       } else if (isMarked) {
                         // Marked for review - show purple (only if NOT attempted)
                         buttonClass += 'border-purple-500 bg-purple-500 text-white hover:bg-purple-600'
+                      } else if (isSkipped && !isAnswered) {
+                        // Skipped question - show orange
+                        buttonClass += 'border-orange-500 bg-orange-500 text-white hover:bg-orange-600'
                       } else {
                         // Unanswered/unattempted - show gray
                         buttonClass += 'border-border bg-muted text-muted-foreground hover:bg-muted/80'
@@ -1681,32 +1754,36 @@ export function AdaptivePracticeInterface({
 
                   {/* Legend */}
                   <div className="pt-3 border-t border-border space-y-2">
-                    <p className="text-xs font-medium text-foreground mb-2">Status</p>
-                    <div className="flex flex-wrap gap-3 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded border-2 border-green-500 bg-green-500"></div>
+                    <p className="text-sm font-medium text-foreground mb-2">Status</p>
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-500"></div>
                         <span className="text-muted-foreground">Correct</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded border-2 border-red-500 bg-red-500"></div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded border-2 border-red-500 bg-red-500"></div>
                         <span className="text-muted-foreground">Wrong</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded border-2 border-border bg-muted"></div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded border-2 border-orange-500 bg-orange-500"></div>
+                        <span className="text-muted-foreground">Skipped</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded border-2 border-border bg-muted"></div>
                         <span className="text-muted-foreground">Unanswered</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded border-2 border-purple-500 bg-purple-500"></div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded border-2 border-purple-500 bg-purple-500"></div>
                         <span className="text-muted-foreground">Marked</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="relative w-3 h-3 rounded border-2 border-green-500 bg-green-500 overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-4 h-4 rounded border-2 border-green-500 bg-green-500 overflow-hidden">
                           <div className="absolute inset-0 bg-purple-500" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}></div>
                         </div>
                         <span className="text-muted-foreground">Correct & Marked</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="relative w-3 h-3 rounded border-2 border-red-500 bg-red-500 overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-4 h-4 rounded border-2 border-red-500 bg-red-500 overflow-hidden">
                           <div className="absolute inset-0 bg-purple-500" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}></div>
                         </div>
                         <span className="text-muted-foreground">Wrong & Marked</span>
@@ -1746,25 +1823,98 @@ export function AdaptivePracticeInterface({
           </DialogHeader>
           
           <div className="space-y-6 py-4">
-            {/* Statistics */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 rounded-lg border border-border bg-card">
+            {/* Statistics - Enhanced with 6 cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="text-center p-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {questionHistory.filter(q => q.hasAnswer).length}
+                  {questionHistory.filter(q => q.isCorrect === true).length}
                 </div>
-                <div className="text-sm text-muted-foreground mt-1">Attempted</div>
-                </div>
-              <div className="text-center p-4 rounded-lg border border-border bg-card">
-                <div className="text-2xl font-bold text-muted-foreground">
-                  {questionHistory.filter(q => !q.hasAnswer).length}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">Not Attempted</div>
+                <div className="text-xs text-muted-foreground mt-1">Correct</div>
               </div>
-              <div className="text-center p-4 rounded-lg border border-border bg-card">
+              <div className="text-center p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {questionHistory.filter(q => q.isCorrect === false).length}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Incorrect</div>
+              </div>
+              <div className="text-center p-3 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30">
+                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  {skippedQuestions.size}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Skipped</div>
+              </div>
+              <div className="text-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                <div className="text-2xl font-bold text-muted-foreground">
+                  {allQuestions.length - questionHistory.filter(q => q.hasAnswer).length - skippedQuestions.size}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Unanswered</div>
+              </div>
+              <div className="text-center p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30">
                 <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {markedQuestions.size}
                 </div>
-                <div className="text-sm text-muted-foreground mt-1">Marked</div>
+                <div className="text-xs text-muted-foreground mt-1">Marked</div>
+              </div>
+              <div className="text-center p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {questionHistory.filter(q => q.hasAnswer).length > 0 ? Math.round(timer / questionHistory.filter(q => q.hasAnswer).length) : 0}s
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Avg Time</div>
+              </div>
+            </div>
+            
+            {/* Difficulty Breakdown */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Performance by Difficulty</h3>
+              <div className="space-y-2">
+                {(() => {
+                  const diffStats = { easy: { total: 0, correct: 0 }, medium: { total: 0, correct: 0 }, hard: { total: 0, correct: 0 } }
+                  allQuestions.forEach(q => {
+                    const diff = q.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard'
+                    if (diffStats[diff]) {
+                      diffStats[diff].total++
+                      const historyItem = questionHistory.find(h => h.id === q.id)
+                      if (historyItem?.isCorrect === true) diffStats[diff].correct++
+                    }
+                  })
+                  return (
+                    <>
+                      {diffStats.easy.total > 0 && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700">Easy</Badge>
+                            <span className="text-sm text-foreground">{diffStats.easy.correct}/{diffStats.easy.total}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                            {diffStats.easy.total > 0 ? Math.round((diffStats.easy.correct / diffStats.easy.total) * 100) : 0}%
+                          </span>
+                        </div>
+                      )}
+                      {diffStats.medium.total > 0 && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700">Medium</Badge>
+                            <span className="text-sm text-foreground">{diffStats.medium.correct}/{diffStats.medium.total}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">
+                            {diffStats.medium.total > 0 ? Math.round((diffStats.medium.correct / diffStats.medium.total) * 100) : 0}%
+                          </span>
+                        </div>
+                      )}
+                      {diffStats.hard.total > 0 && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700">Hard</Badge>
+                            <span className="text-sm text-foreground">{diffStats.hard.correct}/{diffStats.hard.total}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                            {diffStats.hard.total > 0 ? Math.round((diffStats.hard.correct / diffStats.hard.total) * 100) : 0}%
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             </div>
 
@@ -1783,21 +1933,39 @@ export function AdaptivePracticeInterface({
                     const historyItem = questionHistory.find(h => h.id === q.id)
                     const isAnswered = historyItem?.hasAnswer || false
                     const isMarked = markedQuestions.has(q.id)
+                    const isSkipped = skippedQuestions.has(q.id)
+                    const isCorrect = historyItem?.isCorrect
                     
-                    let buttonClass = 'relative p-2 rounded-md border-2 transition-all text-xs font-semibold text-center overflow-hidden '
+                    let buttonClass = 'relative p-2 rounded-md border-2 transition-all hover:scale-105 text-xs font-semibold text-center overflow-hidden cursor-pointer '
                     let hasSplitColor = false
+                    let splitColorClass = ''
                     
-                    // Priority order: Attempted & Marked (half green/half purple) > Attempted > Marked > Unanswered
-                    if (isAnswered && isMarked) {
-                      // Both attempted and marked - show half green, half purple (diagonal split)
-                      buttonClass += 'border-green-500 bg-green-500 text-white'
+                    // Priority order: Correct+Marked > Wrong+Marked > Correct > Wrong > Marked > Skipped > Unanswered
+                    if (isAnswered && isMarked && isCorrect === true) {
+                      // Correct and marked - show half green, half purple (diagonal split)
+                      buttonClass += 'border-green-500 bg-green-500 text-white hover:bg-green-600'
                       hasSplitColor = true
-                    } else if (isAnswered) {
-                      buttonClass += 'border-green-500 bg-green-500 text-white'
+                      splitColorClass = 'bg-purple-500'
+                    } else if (isAnswered && isMarked && isCorrect === false) {
+                      // Wrong and marked - show half red, half purple (diagonal split)
+                      buttonClass += 'border-red-500 bg-red-500 text-white hover:bg-red-600'
+                      hasSplitColor = true
+                      splitColorClass = 'bg-purple-500'
+                    } else if (isAnswered && isCorrect === true) {
+                      // Correct answer - show green
+                      buttonClass += 'border-green-500 bg-green-500 text-white hover:bg-green-600'
+                    } else if (isAnswered && isCorrect === false) {
+                      // Wrong answer - show red
+                      buttonClass += 'border-red-500 bg-red-500 text-white hover:bg-red-600'
                     } else if (isMarked) {
-                      buttonClass += 'border-purple-500 bg-purple-500 text-white'
+                      // Marked for review - show purple (only if NOT attempted)
+                      buttonClass += 'border-purple-500 bg-purple-500 text-white hover:bg-purple-600'
+                    } else if (isSkipped && !isAnswered) {
+                      // Skipped question - show orange
+                      buttonClass += 'border-orange-500 bg-orange-500 text-white hover:bg-orange-600'
                     } else {
-                      buttonClass += 'border-border bg-muted text-muted-foreground'
+                      // Unanswered/unattempted - show gray
+                      buttonClass += 'border-border bg-muted text-muted-foreground hover:bg-muted/80'
                     }
                     
                     return (
@@ -1805,11 +1973,44 @@ export function AdaptivePracticeInterface({
                         key={q.id}
                         className={buttonClass}
                         title={`Q${index + 1}: ${q.text.substring(0, 50)}...`}
-                        disabled
+                        onClick={() => {
+                          // Navigate to clicked question and close dialog
+                          setShowEndSessionDialog(false)
+                          
+                          if (index !== currentQuestionIndex) {
+                            const historyItem = questionHistory.find(h => h.id === q.id)
+                            
+                            setCurrentQuestionIndex(index)
+                            setCurrentQuestion(q)
+                            
+                            // Restore answer if previously answered
+                            if (historyItem?.hasAnswer) {
+                              setShowFeedback(true)
+                              setIsCorrect(historyItem.isCorrect)
+                              fetchQuestionDetails(q.id)
+                            } else {
+                              setSelectedAnswer(null)
+                              setShowFeedback(false)
+                              setIsCorrect(null)
+                              setHints(null)
+                              setSolutionSteps(null)
+                              setFormulaUsed(null)
+                              fetchQuestionDetails(q.id)
+                            }
+                            
+                            setQuestionStartTime(Date.now())
+                            setShowHints(false)
+                            setShowCorrectOptions(false)
+                            setAnalytics((prev) => ({
+                              ...prev,
+                              questions_answered: index,
+                            }))
+                          }
+                        }}
                       >
                         {hasSplitColor && (
                           <div 
-                            className="absolute inset-0 bg-purple-500"
+                            className={`absolute inset-0 ${splitColorClass}`}
                             style={{
                               clipPath: 'polygon(0 0, 100% 0, 100% 100%)',
                             }}
@@ -1821,22 +2022,42 @@ export function AdaptivePracticeInterface({
                   })}
                 </div>
 
-                {/* Legend */}
+                {/* Legend - Enhanced to match sidebar */}
                 <div className="pt-3 border-t border-border">
-                  <p className="text-xs font-medium text-foreground mb-2">Status</p>
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded border-2 border-green-500 bg-green-500"></div>
-                      <span className="text-muted-foreground">Attempted</span>
-          </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded border-2 border-border bg-muted"></div>
+                  <p className="text-sm font-medium text-foreground mb-2">Status</p>
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-500"></div>
+                      <span className="text-muted-foreground">Correct</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border-2 border-red-500 bg-red-500"></div>
+                      <span className="text-muted-foreground">Wrong</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border-2 border-orange-500 bg-orange-500"></div>
+                      <span className="text-muted-foreground">Skipped</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border-2 border-border bg-muted"></div>
                       <span className="text-muted-foreground">Unanswered</span>
-        </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded border-2 border-purple-500 bg-purple-500"></div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border-2 border-purple-500 bg-purple-500"></div>
                       <span className="text-muted-foreground">Marked</span>
-      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-4 h-4 rounded border-2 border-green-500 bg-green-500 overflow-hidden">
+                        <div className="absolute inset-0 bg-purple-500" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}></div>
+                      </div>
+                      <span className="text-muted-foreground">Correct & Marked</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-4 h-4 rounded border-2 border-red-500 bg-red-500 overflow-hidden">
+                        <div className="absolute inset-0 bg-purple-500" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}></div>
+                      </div>
+                      <span className="text-muted-foreground">Wrong & Marked</span>
+                    </div>
                   </div>
                 </div>
               </div>
