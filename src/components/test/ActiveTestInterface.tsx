@@ -287,6 +287,35 @@ export function ActiveTestInterface({
         })
         .eq('id', attempt.id)
 
+      // Update leaderboard and user analytics
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const response = await fetch('/api/adaptive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              functionName: 'update-leaderboard',
+              payload: {
+                attempt_id: attempt.id,
+                user_id: user.id,
+                test_id: test.id,
+              },
+            }),
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            console.log('Leaderboard updated:', data)
+          } else {
+            console.error('Failed to update leaderboard:', await response.text())
+          }
+        }
+      } catch (error) {
+        console.error('Error updating leaderboard:', error)
+        // Don't fail the submission if leaderboard update fails
+      }
+
       toast.success('Test submitted successfully!')
       
       // Exit fullscreen

@@ -112,7 +112,7 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
   }
 
   // Fetch metrics for detailed breakdown with question_topic
-  const { data: metrics } = await supabase
+  const { data: metrics, error: metricsError } = await supabase
     .from('user_metrics')
     .select(`
       *,
@@ -121,6 +121,26 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
     `)
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true })
+  
+  // Debug logging
+  console.log('=== SUMMARY PAGE DATA FETCH ===')
+  console.log('Session ID:', sessionId)
+  console.log('Metrics count:', metrics?.length || 0)
+  console.log('Metrics error:', metricsError)
+  console.log('Session data:', {
+    total_questions: session.total_questions,
+    correct_answers: session.correct_answers,
+    incorrect_answers: session.incorrect_answers,
+    skipped_count: session.skipped_count,
+  })
+  
+  if (metrics && metrics.length > 0) {
+    console.log('Sample metric:', metrics[0])
+    console.log('Metrics with is_correct:', metrics.filter((m: any) => m.is_correct !== null).length)
+  } else {
+    console.warn('⚠️ NO METRICS FOUND FOR SESSION:', sessionId)
+    console.warn('This means answers were not saved to user_metrics table')
+  }
 
   // Calculate weak area analysis based on question_topic
   const weakAreas: Array<{
@@ -189,6 +209,28 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
   // Check for both boolean true and explicit true values
   const correctCount = metrics?.filter((m: any) => m.is_correct === true || m.is_correct === 1).length || 0
   
+  // Fallback: If metrics are empty but session has data, use session data
+  const finalCorrectCount = correctCount > 0 ? correctCount : (session.correct_answers || 0)
+  const finalIncorrectCount = incorrectCount > 0 ? incorrectCount : (session.incorrect_answers || 0)
+  const finalAttemptedCount = attemptedCount > 0 ? attemptedCount : (finalCorrectCount + finalIncorrectCount)
+  const finalSkippedCount = skippedCount > 0 ? skippedCount : (session.skipped_count || 0)
+  const finalNotAttemptedCount = Math.max(0, (session.total_questions || 0) - finalAttemptedCount - finalSkippedCount)
+  
+  console.log('=== CALCULATED STATISTICS ===')
+  console.log('From metrics:', { correctCount, incorrectCount, attemptedCount })
+  console.log('From session:', { 
+    correct_answers: session.correct_answers, 
+    incorrect_answers: session.incorrect_answers,
+    total_questions: session.total_questions 
+  })
+  console.log('Final values:', { 
+    finalCorrectCount, 
+    finalIncorrectCount, 
+    finalAttemptedCount,
+    finalSkippedCount,
+    finalNotAttemptedCount
+  })
+  
   // Get mastery progression
   const masteryProgression = metrics
     ?.filter((m: any) => m.mastery_score_before !== null || m.mastery_score_after !== null)
@@ -216,11 +258,11 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
       recommendations={recommendations}
       categoryId={categoryId}
       weakAreas={weakAreas.slice(0, 5)} // Top 5 weak areas
-      attemptedCount={attemptedCount}
-      notAttemptedCount={notAttemptedCount}
-      skippedCount={skippedCount}
-      incorrectCount={incorrectCount}
-      correctCount={correctCount}
+      attemptedCount={finalAttemptedCount}
+      notAttemptedCount={finalNotAttemptedCount}
+      skippedCount={finalSkippedCount}
+      incorrectCount={finalIncorrectCount}
+      correctCount={finalCorrectCount}
       finalMastery={finalMastery}
       startingMastery={startingMastery}
       masteryChange={finalMastery - startingMastery}

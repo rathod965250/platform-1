@@ -26,6 +26,8 @@ import {
   EyeOff,
   AlertCircle,
   SkipForward,
+  Maximize,
+  Minimize,
 } from 'lucide-react'
 import { QuestionDisplay } from '@/components/test/QuestionDisplay'
 import { AdaptiveQuestion, AdaptiveAnalytics } from '@/types/adaptive'
@@ -100,6 +102,7 @@ export function AdaptivePracticeInterface({
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [reportErrorType, setReportErrorType] = useState<string>('')
   const [reportDescription, setReportDescription] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
   const [showCorrectOptions, setShowCorrectOptions] = useState(false)
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
@@ -109,6 +112,10 @@ export function AdaptivePracticeInterface({
   const [questionsLoaded, setQuestionsLoaded] = useState(false)
   const mobileMinimapRef = useRef<HTMLDivElement | null>(null)
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false)
+  
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Timer effect
   useEffect(() => {
@@ -136,6 +143,45 @@ export function AdaptivePracticeInterface({
       setTimer(0)
     }
   }, [currentQuestion?.id, showFeedback])
+
+  // Fullscreen toggle function
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // Enter fullscreen
+        if (containerRef.current) {
+          await containerRef.current.requestFullscreen()
+          setIsFullscreen(true)
+        }
+      } else {
+        // Exit fullscreen
+        await document.exitFullscreen()
+        setIsFullscreen(false)
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error)
+      toast.error('Fullscreen not supported on this device')
+    }
+  }, [])
+
+  // Monitor fullscreen changes (e.g., when user presses ESC)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange)
+    }
+  }, [])
 
   // Fetch question details including hints, solution steps, formula
   const fetchQuestionDetails = useCallback(async (questionId: string) => {
@@ -209,7 +255,7 @@ export function AdaptivePracticeInterface({
           subcategory_id
         `)
         .in('subcategory_id', selectedSubcategories)
-        .limit(questionCount * 2) // Fetch more than needed for variety
+        .limit(1000) // Fetch more questions to ensure we have enough from all topics
 
       if (error) {
         console.error('Error loading questions:', error)
@@ -236,8 +282,10 @@ export function AdaptivePracticeInterface({
         })
       })
 
-      // Process questions
-      const processedQuestions: AdaptiveQuestion[] = questionsData.map((q: any) => {
+      // Process questions and group by subcategory
+      const questionsBySubcategory = new Map<string, AdaptiveQuestion[]>()
+      
+      questionsData.forEach((q: any) => {
         // Construct options from individual columns
         const optionsArray: string[] = []
         if (q['option a']) optionsArray.push(q['option a'])
@@ -248,7 +296,7 @@ export function AdaptivePracticeInterface({
 
         const subcategoryInfo = q.subcategory_id ? subcategoryMap.get(q.subcategory_id) : null
 
-        return {
+        const processedQuestion: AdaptiveQuestion = {
           id: q.id,
           text: q['question text'] || '',
           type: (q.question_type || 'mcq') as 'mcq' | 'true_false' | 'fill_blank',
@@ -262,11 +310,77 @@ export function AdaptivePracticeInterface({
             }
           },
         }
+        
+        // Group by subcategory
+        const subcatId = q.subcategory_id || 'unknown'
+        if (!questionsBySubcategory.has(subcatId)) {
+          questionsBySubcategory.set(subcatId, [])
+        }
+        questionsBySubcategory.get(subcatId)!.push(processedQuestion)
       })
 
-      // Shuffle and limit to questionCount
-      const shuffled = processedQuestions.sort(() => Math.random() - 0.5)
-      const limitedQuestions = shuffled.slice(0, questionCount)
+      // Log available questions per topic
+      console.log('=== QUESTION LOADING DEBUG ===')
+      console.log('Selected topics:', selectedSubcategories.length)
+      console.log('Requested questions:', questionCount)
+      console.log('Available questions per topic:')
+      selectedSubcategories.forEach(subcatId => {
+        const topicQuestions = questionsBySubcategory.get(subcatId) || []
+        const topicName = subcategoryMap.get(subcatId)?.name || 'Unknown'
+        console.log(`  - ${topicName}: ${topicQuestions.length} questions`)
+      })
+
+      // Distribute questions equally across all selected topics
+      const distributedQuestions: AdaptiveQuestion[] = []
+      const questionsPerTopic = Math.ceil(questionCount / selectedSubcategories.length)
+      
+      console.log(`Target per topic: ${questionsPerTopic}`)
+      
+      // First pass: try to get equal amounts from each topic
+      const topicsWithQuestions: string[] = []
+      selectedSubcategories.forEach(subcatId => {
+        const topicQuestions = questionsBySubcategory.get(subcatId) || []
+        if (topicQuestions.length > 0) {
+          topicsWithQuestions.push(subcatId)
+          // Shuffle questions for this topic
+          const shuffled = topicQuestions.sort(() => Math.random() - 0.5)
+          // Take up to questionsPerTopic from this topic
+          const taken = Math.min(questionsPerTopic, topicQuestions.length)
+          distributedQuestions.push(...shuffled.slice(0, taken))
+        } else {
+          const topicName = subcategoryMap.get(subcatId)?.name || 'Unknown'
+          console.warn(`⚠️ No questions available for topic: ${topicName}`)
+        }
+      })
+      
+      // If we don't have enough questions, fill from topics that have more
+      if (distributedQuestions.length < questionCount) {
+        console.log(`Need ${questionCount - distributedQuestions.length} more questions`)
+        topicsWithQuestions.forEach(subcatId => {
+          if (distributedQuestions.length >= questionCount) return
+          
+          const topicQuestions = questionsBySubcategory.get(subcatId) || []
+          const shuffled = topicQuestions.sort(() => Math.random() - 0.5)
+          // Take additional questions beyond what we already took
+          const alreadyTaken = distributedQuestions.filter(q => q.subcategory?.id === subcatId).length
+          const remaining = shuffled.slice(alreadyTaken)
+          const needed = questionCount - distributedQuestions.length
+          distributedQuestions.push(...remaining.slice(0, needed))
+        })
+      }
+      
+      // Shuffle the final distributed questions and limit to exact questionCount
+      const finalShuffled = distributedQuestions.sort(() => Math.random() - 0.5)
+      const limitedQuestions = finalShuffled.slice(0, questionCount)
+
+      // Log distribution for debugging
+      const distributionLog = new Map<string, number>()
+      limitedQuestions.forEach(q => {
+        const topicName = q.subcategory?.name || 'Unknown'
+        distributionLog.set(topicName, (distributionLog.get(topicName) || 0) + 1)
+      })
+      console.log('Final distribution:', Object.fromEntries(distributionLog))
+      console.log('Total questions loaded:', limitedQuestions.length)
 
       setAllQuestions(limitedQuestions)
       
@@ -290,7 +404,11 @@ export function AdaptivePracticeInterface({
       }
       
       setQuestionsLoaded(true)
-      toast.success(`Loaded ${limitedQuestions.length} questions`)
+      
+      // Create distribution summary for toast
+      const topicCount = distributionLog.size
+      const avgPerTopic = Math.round(limitedQuestions.length / topicCount)
+      toast.success(`Loaded ${limitedQuestions.length} questions from ${topicCount} topic${topicCount > 1 ? 's' : ''} (~${avgPerTopic} per topic)`)
     } catch (error: any) {
       console.error('Error loading all questions:', error)
       toast.error('Failed to load questions')
@@ -303,8 +421,9 @@ export function AdaptivePracticeInterface({
   // Navigate to next question from pre-loaded questions
   const fetchNextQuestion = useCallback(async (lastQuestionData?: any) => {
     if (!questionsLoaded || allQuestions.length === 0) {
-          return
-        }
+      console.warn('⚠️ fetchNextQuestion called but questions not loaded')
+      return
+    }
         
     try {
       setLoading(true)
@@ -312,15 +431,22 @@ export function AdaptivePracticeInterface({
       // Move to next question
       const nextIndex = currentQuestionIndex + 1
       
+      console.log('=== FETCH NEXT QUESTION ===')
+      console.log('Current index:', currentQuestionIndex)
+      console.log('Next index:', nextIndex)
+      console.log('Total questions:', allQuestions.length)
+      console.log('Answered so far:', questionHistory.filter(q => q.hasAnswer).length)
+      
       if (nextIndex >= allQuestions.length) {
-        // All questions completed
-        setIsRedirecting(true)
-        toast.info('All questions completed!')
-        setTimeout(() => {
-          router.push(`/practice/adaptive/${category.id}/${sessionId}/summary`)
-        }, 1000)
+        // All questions completed - show end session dialog instead of auto-redirecting
+        console.log('✅ All questions completed! Showing end session dialog')
+        setLoading(false)
+        toast.success('All questions completed!')
+        setShowEndSessionDialog(true)
         return
       }
+      
+      console.log(`Moving to question ${nextIndex + 1} of ${allQuestions.length}`)
 
       const nextQuestion = allQuestions[nextIndex]
       
@@ -473,28 +599,39 @@ export function AdaptivePracticeInterface({
       return
     }
 
+    console.log('=== SUBMIT ANSWER CLICKED ===')
+    console.log('Current question index:', currentQuestionIndex)
+    console.log('Total questions:', allQuestions.length)
+    console.log('Questions remaining:', allQuestions.length - currentQuestionIndex - 1)
+
+    // Immediately disable button for instant feedback
     setSubmitting(true)
     const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000)
+    const supabase = createClient()
     
-    // Fetch full question details from database
+    // Start fetching question details immediately (non-blocking)
+    const questionDetailsPromise = supabase
+      .from('questions')
+      .select('"correct answer", explanation, "option a", "option b", "option c", "option d", "option e"')
+      .eq('id', currentQuestion.id)
+      .single()
+    
+    // Get user immediately for parallel operations
+    const userPromise = supabase.auth.getUser()
+    
+    // Wait for question details to verify answer
     let actualCorrect = false
     let correctAnswerValue = ''
     let explanationText = ''
     
     try {
-      const supabase = createClient()
-      const { data: questionData } = await supabase
-        .from('questions')
-        .select('"correct answer", explanation, "option a", "option b", "option c", "option d", "option e"')
-        .eq('id', currentQuestion.id)
-        .single()
+      const { data: questionData } = await questionDetailsPromise
       
       if (questionData) {
         correctAnswerValue = questionData['correct answer'] || ''
         explanationText = questionData.explanation || 'No explanation available'
         
         // Check if answer matches
-        // Handle both letter-based answers (A, B, C) and full option text
         const selectedAnswerNormalized = selectedAnswer.trim().toLowerCase()
         const correctAnswerNormalized = correctAnswerValue.trim().toLowerCase()
         
@@ -503,10 +640,9 @@ export function AdaptivePracticeInterface({
         
         // If direct comparison fails, try matching option letters
         if (!actualCorrect) {
-          // Check if both are single letters (A, B, C, D, E)
           if (selectedAnswerNormalized.length === 1 && correctAnswerNormalized.length === 1) {
             actualCorrect = selectedAnswerNormalized === correctAnswerNormalized
-        } else {
+          } else {
             // Try to match by option text
             const optionMap: Record<string, string> = {
               'a': (questionData['option a'] || '').trim().toLowerCase(),
@@ -516,31 +652,24 @@ export function AdaptivePracticeInterface({
               'e': (questionData['option e'] || '').trim().toLowerCase(),
             }
             
-            // If selected answer is a letter, get its text
             const selectedText = optionMap[selectedAnswerNormalized] || selectedAnswerNormalized
             const correctText = optionMap[correctAnswerNormalized] || correctAnswerNormalized
-            
-            // Compare texts
             actualCorrect = selectedText === correctText
           }
         }
-        
-        console.log('Answer check:', {
-          selectedAnswer: selectedAnswerNormalized,
-          correctAnswer: correctAnswerNormalized,
-          actualCorrect,
-        })
       }
     } catch (error) {
       console.error('Error fetching question details:', error)
       actualCorrect = false
     }
 
+    // Update UI immediately - this makes it feel instant!
     setIsCorrect(actualCorrect)
     setCorrectAnswer(correctAnswerValue || 'See explanation')
     setExplanation(explanationText || 'No explanation available')
     setShowFeedback(true)
     setShowCorrectOptions(true)
+    setSubmitting(false) // Re-enable button immediately
 
     if (actualCorrect) {
       setStreak((prev) => prev + 1)
@@ -558,42 +687,68 @@ export function AdaptivePracticeInterface({
     // Update answered questions
     setAnsweredQuestionIds((prev) => [...prev, currentQuestion.id])
 
-    // Submit answer data to edge function (but don't fetch next question yet)
-    try {
-      const response = await fetch('/api/adaptive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          functionName: 'adaptive-next-question',
-          payload: {
-            category_id: category.id,
-            session_id: sessionId,
-            selected_subcategories: selectedSubcategories,
-            answered_question_ids: [...answeredQuestionIds, currentQuestion.id],
-            last_question: {
-        question_id: currentQuestion.id,
-        is_correct: actualCorrect,
-        time_taken: timeTaken,
-        difficulty: currentQuestion.difficulty,
-            },
-          },
+    // Run database saves in background (non-blocking, parallel)
+    const { data: { user } } = await userPromise
+    
+    if (user) {
+      // Fire both operations in parallel without waiting
+      Promise.all([
+        // Save to user_metrics
+        supabase.from('user_metrics').insert({
+          user_id: user.id,
+          session_id: sessionId,
+          question_id: currentQuestion.id,
+          subcategory_id: currentQuestion.subcategory?.id || null,
+          is_correct: actualCorrect,
+          time_taken_seconds: timeTaken,
+          difficulty: currentQuestion.difficulty,
+        }).then(({ error }) => {
+          if (error) {
+            console.error('Error saving to user_metrics:', error)
+          } else {
+            console.log('Answer saved to user_metrics successfully')
+          }
         }),
+        
+        // Call Edge Function
+        fetch('/api/adaptive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            functionName: 'adaptive-next-question',
+            payload: {
+              category_id: category.id,
+              session_id: sessionId,
+              selected_subcategories: selectedSubcategories,
+              answered_question_ids: [...answeredQuestionIds, currentQuestion.id],
+              last_question: {
+                question_id: currentQuestion.id,
+                is_correct: actualCorrect,
+                time_taken: timeTaken,
+                difficulty: currentQuestion.difficulty,
+              },
+            },
+          }),
+        }).then(async (response) => {
+          if (response.ok) {
+            const data = await response.json()
+            console.log('Answer submitted successfully:', data)
+          }
+        }).catch((error) => {
+          console.error('Error submitting answer:', error)
+        })
+      ]).catch((error) => {
+        console.error('Error in background operations:', error)
       })
-      
-      // Just log the response, don't fetch next question
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Answer submitted successfully:', data)
-      }
-    } catch (error: any) {
-      console.error('Error submitting answer:', error)
-      // Don't show error toast as the answer is already validated locally
-    } finally {
-      setSubmitting(false)
     }
   }
 
   const handleNextQuestion = async () => {
+    console.log('=== NEXT BUTTON CLICKED ===')
+    console.log('Current question index:', currentQuestionIndex)
+    console.log('Total questions:', allQuestions.length)
+    console.log('Is last question?', currentQuestionIndex >= allQuestions.length - 1)
+    
     // Store current question data before clearing
     const lastQuestionData = currentQuestion && showFeedback ? {
       question_id: currentQuestion.id,
@@ -729,6 +884,8 @@ export function AdaptivePracticeInterface({
       return
     }
 
+    setReportSubmitting(true)
+    
     try {
       const response = await fetch('/api/questions/report', {
         method: 'POST',
@@ -753,6 +910,8 @@ export function AdaptivePracticeInterface({
     } catch (error) {
       console.error('Error reporting question:', error)
       toast.error('Failed to report error. Please try again.')
+    } finally {
+      setReportSubmitting(false)
     }
   }
 
@@ -760,8 +919,71 @@ export function AdaptivePracticeInterface({
     setShowEndSessionDialog(true)
   }
 
-  const handleConfirmEndSession = () => {
+  const handleConfirmEndSession = async () => {
     setShowEndSessionDialog(false)
+    
+    try {
+      const supabase = createClient()
+      
+      // Calculate final statistics from question history
+      const totalAttempted = questionHistory.filter(q => q.hasAnswer).length
+      const totalCorrect = questionHistory.filter(q => q.isCorrect === true).length
+      const totalIncorrect = questionHistory.filter(q => q.isCorrect === false).length
+      const totalSkipped = allQuestions.length - totalAttempted
+      
+      console.log('=== ENDING PRACTICE SESSION ===')
+      console.log('Session ID:', sessionId)
+      console.log('Total questions loaded:', allQuestions.length)
+      console.log('Question history:', questionHistory.length)
+      console.log('Statistics:', {
+        totalAttempted,
+        totalCorrect,
+        totalIncorrect,
+        totalSkipped,
+        timer,
+      })
+      
+      // Update practice session with final stats
+      const { data: updateData, error: updateError } = await supabase
+        .from('practice_sessions')
+        .update({
+          total_questions: allQuestions.length,
+          correct_answers: totalCorrect,
+          incorrect_answers: totalIncorrect,
+          skipped_count: totalSkipped,
+          time_taken_seconds: timer,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+        .select()
+      
+      if (updateError) {
+        console.error('❌ Error updating practice_sessions:', updateError)
+        toast.error('Failed to save session data')
+      } else {
+        console.log('✅ Session data saved successfully:', updateData)
+        toast.success('Session completed!')
+      }
+      
+      // Verify data was saved
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('practice_sessions')
+        .select('total_questions, correct_answers, incorrect_answers, skipped_count')
+        .eq('id', sessionId)
+        .single()
+      
+      if (verifyData) {
+        console.log('✅ Verified session data in database:', verifyData)
+      } else {
+        console.error('❌ Could not verify session data:', verifyError)
+      }
+    } catch (error) {
+      console.error('❌ Error in handleConfirmEndSession:', error)
+      toast.error('Error ending session')
+    }
+    
+    // Navigate to summary page
+    console.log('Navigating to summary page...')
     router.push(`/practice/adaptive/${category.id}/${sessionId}/summary`)
   }
 
@@ -782,10 +1004,12 @@ export function AdaptivePracticeInterface({
     }
   }
 
-  // Calculate progress
+  // Calculate progress based on answered questions
   const totalQuestions = allQuestions.length || questionHistory.length
   const answeredCount = questionHistory.filter(q => q.hasAnswer).length
-  const progressPercentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0
+  const progressPercentage = totalQuestions > 0 
+    ? (answeredCount / totalQuestions) * 100 
+    : 0
 
   if (loading && !currentQuestion) {
     return (
@@ -835,7 +1059,10 @@ export function AdaptivePracticeInterface({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      ref={containerRef} 
+      className={`min-h-screen bg-background ${isFullscreen ? 'overflow-y-auto h-screen' : ''}`}
+    >
       {/* Compact Header */}
       <div className="bg-card border-b border-border sticky top-0 z-20 shadow-sm">
         <div className="container mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
@@ -848,18 +1075,25 @@ export function AdaptivePracticeInterface({
           </div>
           
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              {/* Timer */}
-              <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
-                <span className="text-xs sm:text-sm font-mono font-semibold text-green-700 dark:text-green-300">
-                  {formatTime(timer)}
-                </span>
-              </div>
-
             {/* Question Counter */}
               <div className="text-xs sm:text-sm font-semibold text-foreground px-2">
                 Q{questionsLoaded ? currentQuestionIndex + 1 : analytics.questions_answered + 1} / {totalQuestions}
             </div>
+
+            {/* Fullscreen Toggle Button */}
+            <Button
+              onClick={toggleFullscreen}
+              variant="outline"
+              size="sm"
+              className="text-xs h-8 w-8 p-0"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? (
+                <Minimize className="h-4 w-4" />
+              ) : (
+                <Maximize className="h-4 w-4" />
+              )}
+            </Button>
 
             {/* End Session Button */}
             <Button
@@ -882,9 +1116,19 @@ export function AdaptivePracticeInterface({
           {/* Question Area */}
           <div className={`${questionHistory.length > 0 ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-3 sm:space-y-4`}>
             {currentQuestion && (
-              <Card className="border-border bg-card shadow-sm">
-                <CardContent className="p-4 sm:p-6">
-                  {/* Progress Bar - Above Question Header */}
+              <Card className="border-0 bg-transparent shadow-none">
+                <CardContent className="p-0">
+                  {/* Timer - Centered at Top */}
+                  <div className="flex justify-center mb-4">
+                    <div className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg bg-green-50 dark:bg-green-950/30 border-2 border-green-200 dark:border-green-800 shadow-sm">
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
+                      <span className="text-sm sm:text-base font-mono font-bold text-green-700 dark:text-green-300">
+                        {formatTime(timer)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
                   <div className="mb-3 sm:mb-4 space-y-1">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Progress</span>
@@ -903,14 +1147,14 @@ export function AdaptivePracticeInterface({
                         <h2 className="text-base sm:text-lg font-semibold text-foreground">
                           Question {questionsLoaded ? currentQuestionIndex + 1 : analytics.questions_answered + 1} / {totalQuestions}
                   </h2>
-                        <Badge variant="outline" className={`text-xs ${getDifficultyColor(currentQuestion.difficulty)}`}>
-                      {currentQuestion.difficulty}
-                    </Badge>
                     {currentQuestion.subcategory?.name && (
                       <Badge variant="secondary" className="text-xs">
                         {currentQuestion.subcategory.name}
                       </Badge>
                     )}
+                        <Badge variant="outline" className={`text-xs ${getDifficultyColor(currentQuestion.difficulty)}`}>
+                      {currentQuestion.difficulty}
+                    </Badge>
                   </div>
                       
                       {/* Mobile Minimap - Right Side of Question Header */}
@@ -927,18 +1171,30 @@ export function AdaptivePracticeInterface({
                                 const isCurrent = index === currentQuestionIndex && !showFeedback
                                 const isAnswered = historyItem?.hasAnswer || false
                                 const isMarked = markedQuestions.has(q.id)
+                                const isCorrect = historyItem?.isCorrect
                                 
                                 let buttonClass = 'relative p-1.5 rounded-md border-2 transition-all text-xs font-semibold text-center flex-shrink-0 min-w-[36px] h-7 flex items-center justify-center overflow-hidden '
                                 let hasSplitColor = false
+                                let splitColorClass = ''
                                 
                                 if (isCurrent) {
                                   buttonClass += 'border-primary bg-primary/20 ring-2 ring-primary/30 animate-pulse'
-                                } else if (isAnswered && isMarked) {
-                                  // Both attempted and marked - show half green, half purple (diagonal split)
+                                } else if (isAnswered && isMarked && isCorrect === true) {
+                                  // Correct and marked - show half green, half purple (diagonal split)
                                   buttonClass += 'border-green-500 bg-green-500 text-white'
                                   hasSplitColor = true
-                                } else if (isAnswered) {
+                                  splitColorClass = 'bg-purple-500'
+                                } else if (isAnswered && isMarked && isCorrect === false) {
+                                  // Wrong and marked - show half red, half purple (diagonal split)
+                                  buttonClass += 'border-red-500 bg-red-500 text-white'
+                                  hasSplitColor = true
+                                  splitColorClass = 'bg-purple-500'
+                                } else if (isAnswered && isCorrect === true) {
+                                  // Correct answer - show green
                                   buttonClass += 'border-green-500 bg-green-500 text-white'
+                                } else if (isAnswered && isCorrect === false) {
+                                  // Wrong answer - show red
+                                  buttonClass += 'border-red-500 bg-red-500 text-white'
                                 } else if (isMarked) {
                                   buttonClass += 'border-purple-500 bg-purple-500 text-white'
                                 } else {
@@ -983,7 +1239,7 @@ export function AdaptivePracticeInterface({
                                   >
                                     {hasSplitColor && (
                                       <div 
-                                        className="absolute inset-0 bg-purple-500"
+                                        className={`absolute inset-0 ${splitColorClass}`}
                                         style={{
                                           clipPath: 'polygon(0 0, 100% 0, 100% 100%)',
                                         }}
@@ -1022,7 +1278,10 @@ export function AdaptivePracticeInterface({
                             <Flag className="h-4 w-4" />
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
+                        <DialogContent 
+                          className="sm:max-w-md"
+                          container={isFullscreen ? containerRef.current : undefined}
+                        >
                           <DialogHeader>
                             <DialogTitle>Report Question Error</DialogTitle>
                             <DialogDescription>
@@ -1077,11 +1336,26 @@ export function AdaptivePracticeInterface({
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowReportDialog(false)}>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setShowReportDialog(false)}
+                              disabled={reportSubmitting}
+                            >
                               Cancel
                             </Button>
-                            <Button onClick={handleReportError}>
-                              Submit Report
+                            <Button 
+                              onClick={handleReportError}
+                              disabled={reportSubmitting || !reportErrorType || !reportDescription.trim()}
+                              className="min-w-[140px]"
+                            >
+                              {reportSubmitting ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Submitting...
+                                </>
+                              ) : (
+                                'Submit Report'
+                              )}
                             </Button>
                           </DialogFooter>
                         </DialogContent>
@@ -1271,27 +1545,29 @@ export function AdaptivePracticeInterface({
                       )}
                     </div>
 
-                      {/* Next Question Button */}
-                      <div className="flex justify-end pt-2">
-                    <Button
-                      size="lg"
-                      onClick={handleNextQuestion}
-                      disabled={loading}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Loading...
-                        </>
-                      ) : (
-                            <>
-                              Next
-                              <ChevronRight className="ml-2 h-4 w-4" />
-                            </>
+                      {/* Next Question Button - Hide on last question */}
+                      {currentQuestionIndex < allQuestions.length - 1 && (
+                        <div className="flex justify-end pt-2">
+                      <Button
+                        size="lg"
+                        onClick={handleNextQuestion}
+                        disabled={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                          </>
+                        ) : (
+                              <>
+                                Next
+                                <ChevronRight className="ml-2 h-4 w-4" />
+                              </>
+                        )}
+                      </Button>
+                  </div>
                       )}
-                    </Button>
-                </div>
                     </div>
                   )}
                 </CardContent>
@@ -1302,9 +1578,9 @@ export function AdaptivePracticeInterface({
           {/* Question Minimap Sidebar - Desktop Only */}
           {questionsLoaded && allQuestions.length > 0 && (
             <div className="hidden lg:block lg:col-span-4">
-              <Card className="border-border bg-card shadow-sm sticky top-20">
+              <Card className="border-0 bg-transparent shadow-none sticky top-20">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-foreground">Question Minimap</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-foreground text-center">Question Minimap</CardTitle>
               </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Question Grid */}
@@ -1318,18 +1594,28 @@ export function AdaptivePracticeInterface({
                       
                       let buttonClass = 'relative p-2 rounded-md border-2 transition-all hover:scale-105 text-xs font-semibold cursor-pointer overflow-hidden '
                       let hasSplitColor = false
+                      let splitColorClass = ''
                       
-                      // Priority order: Current > Attempted & Marked (half green/half purple) > Attempted > Marked > Unanswered
+                      // Priority order: Current > Correct+Marked > Wrong+Marked > Correct > Wrong > Marked > Unanswered
                       if (isCurrent) {
                         // Current question - show blue with pulse
                         buttonClass += 'border-primary bg-primary/20 ring-2 ring-primary/30 animate-pulse'
-                      } else if (isAnswered && isMarked) {
-                        // Both attempted and marked - show half green, half purple (diagonal split)
+                      } else if (isAnswered && isMarked && isCorrect === true) {
+                        // Correct and marked - show half green, half purple (diagonal split)
                         buttonClass += 'border-green-500 bg-green-500 text-white hover:bg-green-600'
                         hasSplitColor = true
-                      } else if (isAnswered) {
-                        // Attempted question - show green (regardless of correct/incorrect)
+                        splitColorClass = 'bg-purple-500'
+                      } else if (isAnswered && isMarked && isCorrect === false) {
+                        // Wrong and marked - show half red, half purple (diagonal split)
+                        buttonClass += 'border-red-500 bg-red-500 text-white hover:bg-red-600'
+                        hasSplitColor = true
+                        splitColorClass = 'bg-purple-500'
+                      } else if (isAnswered && isCorrect === true) {
+                        // Correct answer - show green
                         buttonClass += 'border-green-500 bg-green-500 text-white hover:bg-green-600'
+                      } else if (isAnswered && isCorrect === false) {
+                        // Wrong answer - show red
+                        buttonClass += 'border-red-500 bg-red-500 text-white hover:bg-red-600'
                       } else if (isMarked) {
                         // Marked for review - show purple (only if NOT attempted)
                         buttonClass += 'border-purple-500 bg-purple-500 text-white hover:bg-purple-600'
@@ -1378,7 +1664,7 @@ export function AdaptivePracticeInterface({
                         >
                           {hasSplitColor && (
                             <div 
-                              className="absolute inset-0 bg-purple-500"
+                              className={`absolute inset-0 ${splitColorClass}`}
                               style={{
                                 clipPath: 'polygon(0 0, 100% 0, 100% 100%)',
                               }}
@@ -1399,18 +1685,46 @@ export function AdaptivePracticeInterface({
                     <div className="flex flex-wrap gap-3 text-xs">
                       <div className="flex items-center gap-1.5">
                         <div className="w-3 h-3 rounded border-2 border-green-500 bg-green-500"></div>
-                        <span className="text-muted-foreground">Attempted</span>
-                </div>
+                        <span className="text-muted-foreground">Correct</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded border-2 border-red-500 bg-red-500"></div>
+                        <span className="text-muted-foreground">Wrong</span>
+                      </div>
                       <div className="flex items-center gap-1.5">
                         <div className="w-3 h-3 rounded border-2 border-border bg-muted"></div>
                         <span className="text-muted-foreground">Unanswered</span>
-                </div>
+                      </div>
                       <div className="flex items-center gap-1.5">
                         <div className="w-3 h-3 rounded border-2 border-purple-500 bg-purple-500"></div>
                         <span className="text-muted-foreground">Marked</span>
-                </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative w-3 h-3 rounded border-2 border-green-500 bg-green-500 overflow-hidden">
+                          <div className="absolute inset-0 bg-purple-500" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}></div>
+                        </div>
+                        <span className="text-muted-foreground">Correct & Marked</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative w-3 h-3 rounded border-2 border-red-500 bg-red-500 overflow-hidden">
+                          <div className="absolute inset-0 bg-purple-500" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}></div>
+                        </div>
+                        <span className="text-muted-foreground">Wrong & Marked</span>
+                      </div>
                     </div>
-                </div>
+                  </div>
+
+                  {/* End Session Button - At Bottom */}
+                  <div className="pt-4 border-t border-border">
+                    <Button
+                      onClick={handleEndSession}
+                      variant="destructive"
+                      size="lg"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      End Session
+                    </Button>
+                  </div>
               </CardContent>
             </Card>
           </div>
@@ -1420,7 +1734,10 @@ export function AdaptivePracticeInterface({
 
       {/* End Session Dialog */}
       <Dialog open={showEndSessionDialog} onOpenChange={setShowEndSessionDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+          container={isFullscreen ? containerRef.current : undefined}
+        >
           <DialogHeader>
             <DialogTitle>End Practice Session</DialogTitle>
             <DialogDescription>

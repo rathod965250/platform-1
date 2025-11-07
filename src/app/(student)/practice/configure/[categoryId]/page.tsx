@@ -28,6 +28,7 @@ export default function PracticeConfigurePage() {
   const [topicsWithoutQuestions, setTopicsWithoutQuestions] = useState<string[]>([])
   const [validTopicIds, setValidTopicIds] = useState<string[]>([])
   const [questionCount, setQuestionCount] = useState(30)
+  const [questionCountInput, setQuestionCountInput] = useState('30')
 
   useEffect(() => {
     async function fetchData() {
@@ -450,10 +451,44 @@ export default function PracticeConfigurePage() {
                     type="number"
                     min="1"
                     max="100"
-                    value={questionCount}
+                    value={questionCountInput}
                     onChange={(e) => {
-                      const value = parseInt(e.target.value) || 30
-                      setQuestionCount(Math.max(1, Math.min(100, value)))
+                      const value = e.target.value
+                      // Allow empty input and any digits while typing
+                      setQuestionCountInput(value)
+                      
+                      // Update the actual count if valid
+                      if (value === '') {
+                        // Don't update questionCount yet, wait for blur
+                        return
+                      }
+                      const numValue = parseInt(value)
+                      if (!isNaN(numValue) && numValue >= 1 && numValue <= 100) {
+                        setQuestionCount(numValue)
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Validate and clamp on blur (when user finishes editing)
+                      const value = e.target.value
+                      const numValue = parseInt(value)
+                      
+                      if (value === '' || isNaN(numValue) || numValue < 1) {
+                        // Reset to default if invalid or empty
+                        setQuestionCount(30)
+                        setQuestionCountInput('30')
+                      } else if (numValue > 100) {
+                        // Clamp to max
+                        setQuestionCount(100)
+                        setQuestionCountInput('100')
+                      } else {
+                        // Use valid value
+                        setQuestionCount(numValue)
+                        setQuestionCountInput(numValue.toString())
+                      }
+                    }}
+                    onFocus={(e) => {
+                      // Select all text when focused for easy editing
+                      e.target.select()
                     }}
                     className="w-24 font-sans"
                   />

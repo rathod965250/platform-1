@@ -19,7 +19,22 @@ export default function OnboardingPage() {
     async function checkAuth() {
       try {
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        
+        // Retry logic to handle session propagation delay
+        let user = null
+        let attempts = 0
+        const maxAttempts = 3
+        
+        while (attempts < maxAttempts && !user && mounted) {
+          const { data: { user: currentUser } } = await supabase.auth.getUser()
+          user = currentUser
+          
+          if (!user && attempts < maxAttempts - 1) {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 300))
+          }
+          attempts++
+        }
         
         if (!mounted) return
         

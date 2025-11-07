@@ -96,10 +96,29 @@ export function PracticeSummary({
     : 0
 
   const improvementRate = sessionStats?.improvement_rate || 0
-  // Calculate average time from metrics if sessionStats doesn't have it
-  const avgTime = sessionStats?.avg_time_seconds || (metrics.length > 0 && attemptedCount > 0
-    ? Math.round(metrics.reduce((sum: number, m: any) => sum + (m.time_taken_seconds || 0), 0) / attemptedCount)
-    : 0)
+  // Calculate comprehensive time statistics
+  const timeStats = {
+    total: 0,
+    min: Infinity,
+    max: 0,
+    avg: 0,
+    attempted: 0,
+  }
+
+  metrics.forEach((metric: any) => {
+    if (metric.is_correct !== null && metric.is_correct !== undefined && metric.time_taken_seconds) {
+      const time = metric.time_taken_seconds
+      timeStats.total += time
+      timeStats.min = Math.min(timeStats.min, time)
+      timeStats.max = Math.max(timeStats.max, time)
+      timeStats.attempted += 1
+    }
+  })
+
+  timeStats.avg = timeStats.attempted > 0 ? Math.round(timeStats.total / timeStats.attempted) : 0
+  if (timeStats.min === Infinity) timeStats.min = 0
+  
+  const avgTime = sessionStats?.avg_time_seconds || timeStats.avg
 
   // Get achievement message based on performance
   const getAchievementMessage = () => {
