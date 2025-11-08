@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { RotateCcw, Loader2, Timer, CheckCircle2, Eye, BookOpen } from 'lucide-react'
+import { RotateCcw, Loader2, Timer, CheckCircle2, Eye, BookOpen, Camera } from 'lucide-react'
 
 interface TestPreferences {
   autoSubmitOnTimeExpiry?: boolean
   showCorrectAnswersImmediately?: boolean
   defaultDifficulty?: 'easy' | 'medium' | 'hard'
   enableQuestionReviewMode?: boolean
+  enableCameraProctoring?: boolean
 }
 
 const defaultPreferences: TestPreferences = {
@@ -21,6 +22,7 @@ const defaultPreferences: TestPreferences = {
   showCorrectAnswersImmediately: false,
   defaultDifficulty: 'medium',
   enableQuestionReviewMode: true,
+  enableCameraProctoring: false,
 }
 
 interface TestPreferencesProps {
@@ -181,6 +183,11 @@ export function TestPreferences({
       description: 'Allow reviewing and changing answers before submission',
       icon: BookOpen,
     },
+    enableCameraProctoring: {
+      label: 'Enable Camera Proctoring',
+      description: 'Use camera for test monitoring and security (camera will be active throughout the test)',
+      icon: Camera,
+    },
   }
 
   return (
@@ -213,7 +220,7 @@ export function TestPreferences({
             </div>
             <Switch
               id={key}
-              checked={preferences[key as keyof TestPreferences] ?? false}
+              checked={typeof preferences[key as keyof TestPreferences] === 'boolean' ? preferences[key as keyof TestPreferences] as boolean : false}
               onCheckedChange={(checked) =>
                 handleToggle(key as keyof TestPreferences, checked)
               }

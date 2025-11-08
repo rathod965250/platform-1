@@ -319,15 +319,8 @@ export function MockTestBuilder({ categories, userId }: MockTestBuilderProps) {
 
       if (testError) throw testError
 
-      // Update questions to link them to this test
+      // Get question IDs
       const questionIds = selectedQuestions.map((q: any) => q.id)
-      
-      const { error: updateError } = await supabase
-        .from('questions')
-        .update({ test_id: test.id })
-        .in('id', questionIds)
-
-      if (updateError) throw updateError
       
       // Create custom mock test record for tracking
       const customTestData = {
@@ -349,14 +342,27 @@ export function MockTestBuilder({ categories, userId }: MockTestBuilderProps) {
         total_marks: selectedQuestions.length,
       }
       
-      const { error: customTestError } = await supabase
+      console.log('=== CREATING CUSTOM MOCK TEST ===')
+      console.log('Test ID:', test.id)
+      console.log('User ID:', userId)
+      console.log('Question IDs:', questionIds)
+      console.log('Custom Test Data:', customTestData)
+      
+      const { data: customTestResult, error: customTestError } = await supabase
         .from('custom_mock_tests')
         .insert(customTestData)
+        .select()
+      
+      console.log('Insert Result:', customTestResult)
+      console.log('Insert Error:', customTestError)
       
       if (customTestError) {
-        console.error('Error creating custom test record:', customTestError)
-        // Don't fail the whole operation, just log the error
+        console.error('❌ Error creating custom test record:', customTestError)
+        throw new Error(`Failed to create custom test record: ${customTestError.message}`)
       }
+      
+      console.log('✅ Custom mock test created successfully')
+      console.log('=== END CREATE ===')
 
       // Redirect to test instructions
       router.push(`/test/${test.id}/instructions`)

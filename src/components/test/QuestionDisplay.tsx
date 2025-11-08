@@ -18,7 +18,7 @@ export function QuestionDisplay({ question, answer, onAnswerChange }: QuestionDi
       {/* Question Text */}
       <div className="prose prose-lg dark:prose-invert max-w-none">
         <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-          {question.question_text}
+          {question['question text'] || question.question_text}
         </p>
       </div>
 

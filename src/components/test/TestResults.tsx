@@ -683,7 +683,7 @@ export function TestResults({
                               )}
                             </div>
                             <CardTitle className="text-lg font-normal">
-                              {question?.question_text}
+                              {question?.['question text'] || question?.question_text}
                             </CardTitle>
                           </div>
                         </div>
@@ -710,7 +710,7 @@ export function TestResults({
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">Correct Answer:</span>
                               <Badge variant="default" className="bg-green-500">
-                                {question?.correct_answer}
+                                {question?.['correct answer'] || question?.correct_answer}
                               </Badge>
                             </div>
                           )}

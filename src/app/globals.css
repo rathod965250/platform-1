@@ -375,3 +375,47 @@
   scrollbar-width: none;  /* Firefox */
 }
 
+/* Toast Progress Bar Styles */
+[data-sonner-toast] {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-sonner-toast]::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  width: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  animation: toast-progress 5s linear forwards;
+  transform-origin: left;
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Toast Theme Colors */
+[data-sonner-toast][data-type="success"]::after {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+[data-sonner-toast][data-type="error"]::after {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+[data-sonner-toast][data-type="warning"]::after {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+[data-sonner-toast][data-type="info"]::after {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+

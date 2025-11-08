@@ -5,9 +5,10 @@ import TestInstructions from '@/components/test/TestInstructions'
 export default async function TestInstructionsPage({
   params,
 }: {
-  params: { testId: string }
+  params: Promise<{ testId: string }>
 }) {
   const supabase = await createClient()
+  const { testId } = await params
 
   // Get current user
   const {
@@ -22,7 +23,7 @@ export default async function TestInstructionsPage({
   const { data: test, error: testError } = await supabase
     .from('tests')
     .select('*')
-    .eq('id', params.testId)
+    .eq('id', testId)
     .single()
 
   if (testError || !test) {
@@ -33,20 +34,35 @@ export default async function TestInstructionsPage({
   const { data: existingAttempt } = await supabase
     .from('test_attempts')
     .select('*')
-    .eq('test_id', params.testId)
+    .eq('test_id', testId)
     .eq('user_id', user.id)
     .single()
 
-  // Fetch questions count
-  const { count: questionsCount } = await supabase
-    .from('questions')
-    .select('*', { count: 'exact', head: true })
-    .eq('test_id', params.testId)
+  // Try to get questions count from custom_mock_tests first (for custom tests)
+  const { data: customTest } = await supabase
+    .from('custom_mock_tests')
+    .select('total_questions, selected_question_ids')
+    .eq('test_id', testId)
+    .eq('user_id', user.id)
+    .single()
+
+  // If it's a custom test, use the stored question count, otherwise query questions table
+  let questionsCount = 0
+  if (customTest && customTest.selected_question_ids) {
+    questionsCount = customTest.selected_question_ids.length
+  } else {
+    // Fallback to counting questions in the questions table
+    const { count } = await supabase
+      .from('questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('test_id', testId)
+    questionsCount = count || 0
+  }
 
   return (
     <TestInstructions
       test={test}
-      questionsCount={questionsCount || 0}
+      questionsCount={questionsCount}
       hasExistingAttempt={!!existingAttempt}
       userId={user.id}
     />
