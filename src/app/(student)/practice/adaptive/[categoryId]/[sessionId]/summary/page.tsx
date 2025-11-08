@@ -39,6 +39,20 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
     redirect('/practice')
   }
 
+  // Fetch session summary (Enhanced End Session Dialog data)
+  const { data: sessionSummary, error: summaryError } = await supabase
+    .from('session_summary')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (summaryError) {
+    console.warn('⚠️ Session summary not found:', summaryError)
+  } else {
+    console.log('✅ Session summary fetched:', sessionSummary)
+  }
+
   // Calculate analytics if not already done
   const { data: existingStats } = await supabase
     .from('session_stats')
@@ -82,6 +96,41 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
       console.error('Error calculating session stats:', error)
     }
   }
+
+  // Fetch user progress summary (efficient single query)
+  const { data: progressSummary } = await supabase
+    .from('user_progress_summary')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('category_id', categoryId)
+    .single()
+
+  console.log('✅ Progress summary fetched:', progressSummary ? 'Available' : 'Not found')
+
+  // Fallback: Fetch historical data if progress summary doesn't exist
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  
+  const { data: practiceHistory } = await supabase
+    .from('practice_sessions')
+    .select('id, created_at, correct_answers, incorrect_answers, total_questions, time_taken_seconds')
+    .eq('user_id', user.id)
+    .eq('category_id', categoryId)
+    .gte('created_at', thirtyDaysAgo.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  // Fetch historical weak topics from user_metrics (only if no progress summary)
+  const { data: historicalMetrics } = !progressSummary ? await supabase
+    .from('user_metrics')
+    .select(`
+      is_correct,
+      question:questions(question_topic, difficulty)
+    `)
+    .eq('user_id', user.id)
+    .eq('category_id', categoryId)
+    .gte('created_at', thirtyDaysAgo.toISOString())
+    .not('is_correct', 'is', null) : { data: null }
 
   // Fetch recommendations
   let recommendations = []
@@ -596,24 +645,51 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
   }
 
   // Calculate additional statistics
-  // Handle both boolean and null values for is_correct
-  const attemptedCount = metrics?.filter((m: any) => m.is_correct !== null && m.is_correct !== undefined).length || 0
-  const notAttemptedCount = Math.max(0, (session.total_questions || metrics?.length || 0) - attemptedCount)
-  const skippedCount = session.skipped_count || 0
-  // Check for both boolean false and explicit false values
-  const incorrectCount = metrics?.filter((m: any) => m.is_correct === false || m.is_correct === 0).length || 0
-  // Check for both boolean true and explicit true values
-  const correctCount = metrics?.filter((m: any) => m.is_correct === true || m.is_correct === 1).length || 0
+  // Prioritize session_summary data (from Enhanced End Session Dialog) if available
+  let finalCorrectCount: number
+  let finalIncorrectCount: number
+  let finalAttemptedCount: number
+  let finalSkippedCount: number
+  let finalNotAttemptedCount: number
+  let finalMarkedCount: number
   
-  // Fallback: If metrics are empty but session has data, use session data
-  const finalCorrectCount = correctCount > 0 ? correctCount : (session.correct_answers || 0)
-  const finalIncorrectCount = incorrectCount > 0 ? incorrectCount : (session.incorrect_answers || 0)
-  const finalAttemptedCount = attemptedCount > 0 ? attemptedCount : (finalCorrectCount + finalIncorrectCount)
-  const finalSkippedCount = skippedCount > 0 ? skippedCount : (session.skipped_count || 0)
-  const finalNotAttemptedCount = Math.max(0, (session.total_questions || 0) - finalAttemptedCount - finalSkippedCount)
+  if (sessionSummary) {
+    // Use Enhanced End Session Dialog data (most accurate)
+    finalCorrectCount = sessionSummary.correct_count || 0
+    finalIncorrectCount = sessionSummary.incorrect_count || 0
+    finalAttemptedCount = sessionSummary.attempted_count || 0
+    finalSkippedCount = sessionSummary.skipped_count || 0
+    finalNotAttemptedCount = sessionSummary.unanswered_count || 0
+    finalMarkedCount = sessionSummary.marked_count || 0
+    
+    console.log('✅ Using session_summary data (Enhanced End Session Dialog)')
+  } else {
+    // Fallback to calculating from metrics or session data
+    const attemptedCount = metrics?.filter((m: any) => m.is_correct !== null && m.is_correct !== undefined).length || 0
+    const notAttemptedCount = Math.max(0, (session.total_questions || metrics?.length || 0) - attemptedCount)
+    const skippedCount = session.skipped_count || 0
+    const incorrectCount = metrics?.filter((m: any) => m.is_correct === false || m.is_correct === 0).length || 0
+    const correctCount = metrics?.filter((m: any) => m.is_correct === true || m.is_correct === 1).length || 0
+    
+    finalCorrectCount = correctCount > 0 ? correctCount : (session.correct_answers || 0)
+    finalIncorrectCount = incorrectCount > 0 ? incorrectCount : (session.incorrect_answers || 0)
+    finalAttemptedCount = attemptedCount > 0 ? attemptedCount : (finalCorrectCount + finalIncorrectCount)
+    finalSkippedCount = skippedCount > 0 ? skippedCount : (session.skipped_count || 0)
+    finalNotAttemptedCount = Math.max(0, (session.total_questions || 0) - finalAttemptedCount - finalSkippedCount)
+    finalMarkedCount = 0 // Not available in fallback
+    
+    console.log('⚠️ Using fallback calculation (session_summary not available)')
+  }
   
   console.log('=== CALCULATED STATISTICS ===')
-  console.log('From metrics:', { correctCount, incorrectCount, attemptedCount })
+  console.log('From session_summary:', sessionSummary ? {
+    correct_count: sessionSummary.correct_count,
+    incorrect_count: sessionSummary.incorrect_count,
+    attempted_count: sessionSummary.attempted_count,
+    skipped_count: sessionSummary.skipped_count,
+    unanswered_count: sessionSummary.unanswered_count,
+    marked_count: sessionSummary.marked_count,
+  } : 'Not available')
   console.log('From session:', { 
     correct_answers: session.correct_answers, 
     incorrect_answers: session.incorrect_answers,
@@ -624,7 +700,8 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
     finalIncorrectCount, 
     finalAttemptedCount,
     finalSkippedCount,
-    finalNotAttemptedCount
+    finalNotAttemptedCount,
+    finalMarkedCount
   })
   
   // Get mastery progression
@@ -663,12 +740,203 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
   
   console.log('✅ Topic mastery data fetched:', topicMasteryData?.length || 0, 'topics')
 
+  // Generate dynamic recommendations based on practice history and current performance
+  const dynamicRecommendations: Array<{
+    title: string
+    description: string
+    type: 'practice' | 'review' | 'improve' | 'maintain'
+    priority: number
+    topic?: string
+    difficulty?: string
+  }> = []
+
+  // Use progress summary if available (much faster!)
+  if (progressSummary) {
+    console.log('Using progress summary for recommendations')
+    
+    // Weak topics from pre-calculated summary
+    const weakTopicsData = progressSummary.weak_topics as any[]
+    if (weakTopicsData && weakTopicsData.length > 0) {
+      weakTopicsData.slice(0, 2).forEach((topicData: any) => {
+        dynamicRecommendations.push({
+          title: `Practice ${topicData.topic}`,
+          description: `Your accuracy in ${topicData.topic} is ${topicData.accuracy.toFixed(0)}% (${topicData.correct}/${topicData.attempts}). Daily practice will help improve this area.`,
+          type: 'practice',
+          priority: topicData.priority || 1,
+          topic: topicData.topic
+        })
+      })
+    }
+
+    // Improving topics from summary
+    const improvingTopicsData = progressSummary.improving_topics as any[]
+    if (improvingTopicsData && improvingTopicsData.length > 0) {
+      improvingTopicsData.slice(0, 1).forEach((topicData: any) => {
+        dynamicRecommendations.push({
+          title: `Keep Improving ${topicData.topic}`,
+          description: `You're making progress in ${topicData.topic} (${topicData.accuracy.toFixed(0)}% accuracy). A few more practice sessions will solidify your understanding.`,
+          type: 'improve',
+          priority: 2,
+          topic: topicData.topic
+        })
+      })
+    }
+
+    // Strong topics from summary
+    const strongTopicsData = progressSummary.strong_topics as any[]
+    if (strongTopicsData && strongTopicsData.length > 0) {
+      strongTopicsData.slice(0, 1).forEach((topicData: any) => {
+        dynamicRecommendations.push({
+          title: `Maintain Excellence in ${topicData.topic}`,
+          description: `Great work! You have ${topicData.accuracy.toFixed(0)}% accuracy in ${topicData.topic}. Review periodically to maintain this level.`,
+          type: 'maintain',
+          priority: 3,
+          topic: topicData.topic
+        })
+      })
+    }
+  } else if (historicalMetrics && historicalMetrics.length > 0) {
+    // Fallback: Analyze historical performance manually
+    console.log('Using historical metrics for recommendations (slower)')
+    const topicPerformance = new Map<string, { correct: number; total: number }>()
+    
+    historicalMetrics.forEach((metric: any) => {
+      const topic = metric.question?.question_topic
+      if (topic) {
+        const current = topicPerformance.get(topic) || { correct: 0, total: 0 }
+        current.total += 1
+        if (metric.is_correct === true || metric.is_correct === 1) {
+          current.correct += 1
+        }
+        topicPerformance.set(topic, current)
+      }
+    })
+
+    // Find consistently weak topics (accuracy < 60% with at least 3 attempts)
+    const weakTopics = Array.from(topicPerformance.entries())
+      .filter(([_, stats]) => stats.total >= 3 && (stats.correct / stats.total) < 0.6)
+      .sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))
+      .slice(0, 2)
+
+    weakTopics.forEach(([topic, stats]) => {
+      const accuracy = ((stats.correct / stats.total) * 100).toFixed(0)
+      dynamicRecommendations.push({
+        title: `Practice ${topic}`,
+        description: `Your accuracy in ${topic} is ${accuracy}% (${stats.correct}/${stats.total}). Daily practice will help improve this area.`,
+        type: 'practice',
+        priority: 1,
+        topic
+      })
+    })
+
+    // Find improving topics (accuracy 60-80% with at least 3 attempts)
+    const improvingTopics = Array.from(topicPerformance.entries())
+      .filter(([_, stats]) => {
+        const acc = stats.correct / stats.total
+        return stats.total >= 3 && acc >= 0.6 && acc < 0.8
+      })
+      .slice(0, 1)
+
+    improvingTopics.forEach(([topic, stats]) => {
+      const accuracy = ((stats.correct / stats.total) * 100).toFixed(0)
+      dynamicRecommendations.push({
+        title: `Keep Improving ${topic}`,
+        description: `You're making progress in ${topic} (${accuracy}% accuracy). A few more practice sessions will solidify your understanding.`,
+        type: 'improve',
+        priority: 2,
+        topic
+      })
+    })
+
+    // Find strong topics (accuracy >= 80% with at least 3 attempts)
+    const strongTopics = Array.from(topicPerformance.entries())
+      .filter(([_, stats]) => stats.total >= 3 && (stats.correct / stats.total) >= 0.8)
+      .slice(0, 1)
+
+    strongTopics.forEach(([topic, stats]) => {
+      const accuracy = ((stats.correct / stats.total) * 100).toFixed(0)
+      dynamicRecommendations.push({
+        title: `Maintain Excellence in ${topic}`,
+        description: `Great work! You have ${accuracy}% accuracy in ${topic}. Review periodically to maintain this level.`,
+        type: 'maintain',
+        priority: 3,
+        topic
+      })
+    })
+  }
+
+  // Analyze practice frequency
+  if (practiceHistory && practiceHistory.length > 0) {
+    const daysSinceLastPractice = Math.floor(
+      (new Date().getTime() - new Date(practiceHistory[0].created_at).getTime()) / (1000 * 60 * 60 * 24)
+    )
+
+    if (practiceHistory.length < 3) {
+      dynamicRecommendations.push({
+        title: 'Build a Practice Streak',
+        description: `You've completed ${practiceHistory.length} session${practiceHistory.length > 1 ? 's' : ''} this month. Try to practice at least 3 times per week for better retention.`,
+        type: 'practice',
+        priority: 2
+      })
+    }
+
+    // Check for difficulty progression
+    const currentSessionAccuracy = session.total_questions > 0 
+      ? (session.correct_answers / session.total_questions) * 100 
+      : 0
+
+    const hardQuestionsAttempted = sessionSummary?.hard_total || 0
+
+    if (currentSessionAccuracy >= 80 && hardQuestionsAttempted === 0) {
+      dynamicRecommendations.push({
+        title: 'Challenge Yourself with Hard Questions',
+        description: `You scored ${currentSessionAccuracy.toFixed(0)}% in this session. You're ready to tackle harder questions to accelerate your learning.`,
+        type: 'improve',
+        priority: 1,
+        difficulty: 'hard'
+      })
+    }
+  }
+
+  // Fallback recommendations if no historical data
+  if (dynamicRecommendations.length === 0) {
+    if (weakAreas.length > 0) {
+      weakAreas.slice(0, 2).forEach(area => {
+        dynamicRecommendations.push({
+          title: `Focus on ${area.topic}`,
+          description: `Your accuracy in ${area.topic} is ${area.accuracy.toFixed(0)}%. Targeted practice will help you improve quickly.`,
+          type: 'practice',
+          priority: 1,
+          topic: area.topic
+        })
+      })
+    }
+
+    dynamicRecommendations.push({
+      title: 'Practice Regularly',
+      description: 'Consistent daily practice is key to mastering aptitude questions. Aim for at least 15-20 minutes per day.',
+      type: 'practice',
+      priority: 2
+    })
+  }
+
+  // Sort by priority and limit to top 3
+  const finalRecommendations = dynamicRecommendations
+    .sort((a, b) => a.priority - b.priority)
+    .slice(0, 3)
+
+  // Merge with AI recommendations if available
+  const allRecommendations = [...finalRecommendations, ...recommendations].slice(0, 3)
+
+  console.log('✅ Generated dynamic recommendations:', finalRecommendations.length)
+
   return (
     <PracticeSummary
       session={session}
       sessionStats={sessionStats}
+      sessionSummary={sessionSummary || null}
       metrics={metrics || []}
-      recommendations={recommendations}
+      recommendations={allRecommendations}
       categoryId={categoryId}
       weakAreas={weakAreas.slice(0, 5)} // Top 5 weak areas
       strongAreas={strongAreas.slice(0, 5)} // Top 5 strong areas
@@ -679,6 +947,7 @@ export default async function PracticeSummaryPage({ params }: PageProps) {
       skippedCount={finalSkippedCount}
       incorrectCount={finalIncorrectCount}
       correctCount={finalCorrectCount}
+      markedCount={finalMarkedCount}
       finalMastery={finalMastery}
       startingMastery={startingMastery}
       masteryChange={finalMastery - startingMastery}

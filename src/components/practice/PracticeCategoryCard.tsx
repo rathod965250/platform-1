@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { Brain, Calculator, BookOpen, BarChart3, Lightbulb, LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -46,26 +45,6 @@ export function PracticeCategoryCard({
   
   const Icon = iconMap[iconName] || Brain
 
-  // Calculate mastery score strictly based on performance
-  // If adaptiveState exists, use it (it should be calculated from performance)
-  // Otherwise, calculate from totalQuestions and categoryAccuracy
-  // If no performance data exists, default to 1.0 (100% - perfect score for new users)
-  let masteryScore: number
-  if (adaptiveState) {
-    masteryScore = typeof adaptiveState.mastery_score === 'number'
-      ? adaptiveState.mastery_score
-      : parseFloat(String(adaptiveState.mastery_score || 1.0))
-  } else if (totalQuestions > 0 && categoryAccuracy > 0) {
-    // Calculate from performance data if available
-    masteryScore = categoryAccuracy / 100
-  } else {
-    // New users with no performance data get perfect mastery score (100%)
-    masteryScore = 1.0
-  }
-
-  const masteryPercentage = masteryScore * 100
-  const currentDifficulty = adaptiveState?.current_difficulty || 'medium'
-
   // Calculate recent accuracy
   const recentAccuracy = adaptiveState?.recent_accuracy || []
   const recentAccuracyAvg = recentAccuracy.length > 0
@@ -104,48 +83,37 @@ export function PracticeCategoryCard({
           </p>
         )}
 
-        {/* Mastery Progress - Always shown with default 50% for new users */}
-        <div className="space-y-2.5 sm:space-y-3 md:space-y-4 mb-3 sm:mb-4">
-          <div>
-            <div className="flex items-center justify-between text-xs sm:text-sm md:text-base mb-2 sm:mb-2.5 font-sans">
-              <span className="text-muted-foreground font-medium">Mastery Score</span>
-              <span className="font-bold text-foreground">{masteryPercentage.toFixed(0)}%</span>
-            </div>
-            <Progress value={masteryPercentage} className="h-2 sm:h-2.5 md:h-3" />
-          </div>
-
-          {/* Show additional metrics only if user has progress */}
-          {hasProgress && (
-            <>
-              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                {recentAccuracyAvg > 0 && (
-                  <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
-                    <span className="font-semibold">{recentAccuracyAvg.toFixed(0)}%</span> recent accuracy
-                  </div>
-                )}
-                
-                {avgTime > 0 && (
-                  <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
-                    Avg: <span className="font-semibold">{avgTimeFormatted}</span>
-                  </div>
-                )}
-              </div>
-
-              {totalQuestions > 0 && (
+        {/* Practice Metrics */}
+        {hasProgress && (
+          <div className="space-y-2.5 sm:space-y-3 md:space-y-4 mb-3 sm:mb-4">
+            <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+              {recentAccuracyAvg > 0 && (
                 <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
-                  <span className="font-semibold">{totalQuestions}</span> question{totalQuestions !== 1 ? 's' : ''} answered
+                  <span className="font-semibold">{recentAccuracyAvg.toFixed(0)}%</span> recent accuracy
                 </div>
               )}
-            </>
-          )}
-
-          {/* Show message for new users without progress */}
-          {!hasProgress && (
-            <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans text-center py-2">
-              Start practicing to improve your mastery score
+              
+              {avgTime > 0 && (
+                <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                  Avg: <span className="font-semibold">{avgTimeFormatted}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            {totalQuestions > 0 && (
+              <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans">
+                <span className="font-semibold">{totalQuestions}</span> question{totalQuestions !== 1 ? 's' : ''} answered
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Show message for new users without progress */}
+        {!hasProgress && (
+          <div className="text-xs sm:text-sm md:text-base text-muted-foreground font-sans text-center py-2 mb-3 sm:mb-4">
+            Start practicing to track your progress
+          </div>
+        )}
 
         <Button
           asChild

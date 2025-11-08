@@ -8,11 +8,18 @@ interface PracticeStatsProps {
   totalQuestions: number
   accuracy: number
   streak: number
-  mastery: number
+  totalTimeSeconds: number
   isLoading?: boolean
 }
 
-export function PracticeStats({ totalQuestions, accuracy, streak, mastery, isLoading }: PracticeStatsProps) {
+export function PracticeStats({ totalQuestions, accuracy, streak, totalTimeSeconds, isLoading }: PracticeStatsProps) {
+  // Format total time into minutes and seconds
+  const totalMinutes = Math.floor(totalTimeSeconds / 60)
+  const remainingSeconds = totalTimeSeconds % 60
+  const timeFormatted = totalMinutes > 0 
+    ? `${totalMinutes}m ${remainingSeconds}s`
+    : `${totalTimeSeconds}s`
+
   const stats = [
     {
       label: 'Total Questions',
@@ -36,8 +43,8 @@ export function PracticeStats({ totalQuestions, accuracy, streak, mastery, isLoa
       bgColor: 'bg-orange-50 dark:bg-orange-950',
     },
     {
-      label: 'Overall Mastery',
-      value: `${(mastery * 100).toFixed(1)}%`,
+      label: 'Total Time Taken',
+      value: timeFormatted,
       icon: Clock,
       color: 'text-purple-600 dark:text-purple-400',
       bgColor: 'bg-purple-50 dark:bg-purple-950',

@@ -947,13 +947,34 @@ export function AdaptivePracticeInterface({
     
     try {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        toast.error('User not authenticated')
+        return
+      }
       
       // Calculate comprehensive statistics from question history
+      // Attempted = Questions with an answer (correct OR incorrect), regardless of marked status
       const totalAttempted = questionHistory.filter(q => q.hasAnswer).length
       const totalCorrect = questionHistory.filter(q => q.isCorrect === true).length
       const totalIncorrect = questionHistory.filter(q => q.isCorrect === false).length
+      
+      // Count questions that are marked but NOT answered (only marked)
+      const onlyMarkedCount = Array.from(markedQuestions).filter(qId => {
+        const historyItem = questionHistory.find(h => h.id === qId)
+        return !historyItem?.hasAnswer
+      }).length
+      
+      // Skipped questions (explicitly skipped via "Skip" button)
       const totalSkipped = skippedQuestions.size
-      const totalUnanswered = allQuestions.length - totalAttempted - totalSkipped
+      
+      // Not Attempted = Unanswered + Only Marked (marked but no answer)
+      // Note: Skipped questions are considered "not attempted" if they don't have an answer
+      const totalUnanswered = allQuestions.length - totalAttempted
+      
+      // Total marked (includes marked+answered and only marked)
+      const totalMarked = markedQuestions.size
       
       // Calculate average time per attempted question
       const avgTimeSeconds = totalAttempted > 0 ? Math.round(timer / totalAttempted) : 0
@@ -978,19 +999,65 @@ export function AdaptivePracticeInterface({
         }
       })
       
+      // Calculate accuracy percentages
+      const easyAccuracy = difficultyStats.easy.total > 0 
+        ? Math.round((difficultyStats.easy.correct / difficultyStats.easy.total) * 100) 
+        : 0
+      const mediumAccuracy = difficultyStats.medium.total > 0 
+        ? Math.round((difficultyStats.medium.correct / difficultyStats.medium.total) * 100) 
+        : 0
+      const hardAccuracy = difficultyStats.hard.total > 0 
+        ? Math.round((difficultyStats.hard.correct / difficultyStats.hard.total) * 100) 
+        : 0
+      const overallAccuracy = totalAttempted > 0 
+        ? Math.round((totalCorrect / totalAttempted) * 100) 
+        : 0
+      
+      // Build question status map for minimap reconstruction
+      const questionStatusMap: Record<string, any> = {}
+      allQuestions.forEach((q, index) => {
+        const historyItem = questionHistory.find(h => h.id === q.id)
+        const isMarked = markedQuestions.has(q.id)
+        const isSkipped = skippedQuestions.has(q.id)
+        
+        let status = 'unanswered'
+        if (historyItem?.hasAnswer) {
+          status = historyItem.isCorrect === true ? 'correct' : 'incorrect'
+        } else if (isSkipped) {
+          status = 'skipped'
+        }
+        
+        questionStatusMap[q.id] = {
+          index: index + 1,
+          status,
+          is_marked: isMarked,
+          time_spent: historyItem?.timeSpent || 0,
+          difficulty: q.difficulty,
+          subcategory: q.subcategory?.name || 'Unknown',
+        }
+      })
+      
       console.log('=== ENDING PRACTICE SESSION ===')
       console.log('Session ID:', sessionId)
       console.log('Total questions loaded:', allQuestions.length)
       console.log('Question history:', questionHistory.length)
-      console.log('Statistics:', {
-        totalAttempted,
-        totalCorrect,
-        totalIncorrect,
-        totalSkipped,
-        totalUnanswered,
+      console.log('Statistics Breakdown:', {
+        totalAttempted: `${totalAttempted} (questions with answers)`,
+        totalCorrect: `${totalCorrect} (correct answers)`,
+        totalIncorrect: `${totalIncorrect} (incorrect answers)`,
+        totalSkipped: `${totalSkipped} (skipped via Skip button)`,
+        totalUnanswered: `${totalUnanswered} (no answer provided)`,
+        onlyMarkedCount: `${onlyMarkedCount} (marked but no answer)`,
+        totalMarked: `${totalMarked} (all marked questions)`,
         avgTimeSeconds,
         timer,
         difficultyStats,
+        accuracyStats: { easyAccuracy, mediumAccuracy, hardAccuracy, overallAccuracy },
+      })
+      console.log('Verification:', {
+        'Attempted + Not Attempted': totalAttempted + totalUnanswered,
+        'Should equal total questions': allQuestions.length,
+        'Match': (totalAttempted + totalUnanswered) === allQuestions.length ? '✅' : '❌'
       })
       
       // Update practice session with comprehensive stats
@@ -1020,7 +1087,62 @@ export function AdaptivePracticeInterface({
         toast.error('Failed to save session data')
       } else {
         console.log('✅ Session data saved successfully:', updateData)
+      }
+      
+      // Save Enhanced End Session Dialog data to session_summary table
+      const { data: summaryData, error: summaryError } = await supabase
+        .from('session_summary')
+        .upsert({
+          session_id: sessionId,
+          user_id: user.id,
+          total_questions: allQuestions.length,
+          correct_count: totalCorrect,
+          incorrect_count: totalIncorrect,
+          skipped_count: totalSkipped,
+          unanswered_count: totalUnanswered,
+          marked_count: totalMarked,
+          attempted_count: totalAttempted,
+          total_time_seconds: timer,
+          avg_time_per_question: avgTimeSeconds,
+          easy_total: difficultyStats.easy.total,
+          easy_correct: difficultyStats.easy.correct,
+          easy_accuracy: easyAccuracy,
+          medium_total: difficultyStats.medium.total,
+          medium_correct: difficultyStats.medium.correct,
+          medium_accuracy: mediumAccuracy,
+          hard_total: difficultyStats.hard.total,
+          hard_correct: difficultyStats.hard.correct,
+          hard_accuracy: hardAccuracy,
+          overall_accuracy: overallAccuracy,
+          question_status_map: questionStatusMap,
+        }, {
+          onConflict: 'session_id'
+        })
+        .select()
+      
+      if (summaryError) {
+        console.error('❌ Error saving session summary:', summaryError)
+        toast.error('Failed to save session summary')
+      } else {
+        console.log('✅ Session summary saved successfully:', summaryData)
         toast.success('Session completed!')
+      }
+      
+      // Update user progress summary for recommendations
+      try {
+        const { error: progressError } = await supabase.rpc('update_user_progress_summary', {
+          p_user_id: user.id,
+          p_category_id: category.id,
+          p_session_id: sessionId
+        })
+        
+        if (progressError) {
+          console.warn('⚠️ Could not update progress summary:', progressError)
+        } else {
+          console.log('✅ Progress summary updated for recommendations')
+        }
+      } catch (error) {
+        console.warn('⚠️ Progress summary update failed:', error)
       }
       
       // Verify data was saved
@@ -1062,11 +1184,14 @@ export function AdaptivePracticeInterface({
     }
   }
 
-  // Calculate progress based on answered questions
+  // Calculate progress based on current question position (not just answered count)
   const totalQuestions = allQuestions.length || questionHistory.length
   const answeredCount = questionHistory.filter(q => q.hasAnswer).length
+  
+  // Progress shows current question position (e.g., on question 3 of 30 = 3/30)
+  const currentProgress = currentQuestionIndex + 1 // +1 because index is 0-based
   const progressPercentage = totalQuestions > 0 
-    ? (answeredCount / totalQuestions) * 100 
+    ? (currentProgress / totalQuestions) * 100 
     : 0
 
   if (loading && !currentQuestion) {
@@ -1187,15 +1312,19 @@ export function AdaptivePracticeInterface({
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="mb-3 sm:mb-4 space-y-1">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="mb-3 sm:mb-4 space-y-1.5 sm:space-y-2">
+                    <div className="flex items-center justify-between text-xs sm:text-sm md:text-base text-muted-foreground font-medium">
                       <span>Progress</span>
-                      <span>{answeredCount} / {totalQuestions}</span>
+                      <span className="font-semibold text-foreground">{currentProgress} / {totalQuestions}</span>
                     </div>
                     <Progress 
                       value={progressPercentage} 
                       className="h-2 bg-muted"
                     />
+                    <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground/80">
+                      <span>Answered: <span className="font-medium text-muted-foreground">{answeredCount}</span></span>
+                      <span className="font-medium text-primary">{progressPercentage.toFixed(0)}% Complete</span>
+                    </div>
                   </div>
 
                   {/* Question Header */}
@@ -1825,42 +1954,61 @@ export function AdaptivePracticeInterface({
           <div className="space-y-6 py-4">
             {/* Statistics - Enhanced with 6 cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {questionHistory.filter(q => q.isCorrect === true).length}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Correct</div>
-              </div>
-              <div className="text-center p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
-                <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                  {questionHistory.filter(q => q.isCorrect === false).length}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Incorrect</div>
-              </div>
-              <div className="text-center p-3 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30">
-                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {skippedQuestions.size}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Skipped</div>
-              </div>
-              <div className="text-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <div className="text-2xl font-bold text-muted-foreground">
-                  {allQuestions.length - questionHistory.filter(q => q.hasAnswer).length - skippedQuestions.size}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Unanswered</div>
-              </div>
-              <div className="text-center p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30">
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {markedQuestions.size}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Marked</div>
-              </div>
-              <div className="text-center p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {questionHistory.filter(q => q.hasAnswer).length > 0 ? Math.round(timer / questionHistory.filter(q => q.hasAnswer).length) : 0}s
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Avg Time</div>
-              </div>
+              {(() => {
+                // Calculate statistics using the same logic as handleConfirmEndSession
+                const attempted = questionHistory.filter(q => q.hasAnswer).length
+                const correct = questionHistory.filter(q => q.isCorrect === true).length
+                const incorrect = questionHistory.filter(q => q.isCorrect === false).length
+                const notAttempted = allQuestions.length - attempted
+                const avgTime = attempted > 0 ? Math.round(timer / attempted) : 0
+                
+                return (
+                  <>
+                    <div className="text-center p-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {correct}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Correct</div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                        {incorrect}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Incorrect</div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30">
+                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                        {skippedQuestions.size}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Skipped</div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                      <div className="text-2xl font-bold text-muted-foreground">
+                        {notAttempted}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Not Attempted</div>
+                      <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                        (Unanswered + Only Marked)
+                      </div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30">
+                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                        {markedQuestions.size}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Marked</div>
+                      <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                        (All marked)
+                      </div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {avgTime}s
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Avg Time</div>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
             
             {/* Difficulty Breakdown */}

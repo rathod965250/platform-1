@@ -29,12 +29,13 @@ CREATE INDEX IF NOT EXISTS idx_student_assignments_assigned_by ON student_assign
 -- Enable RLS
 ALTER TABLE student_assignments ENABLE ROW LEVEL SECURITY;
 
--- Policy: Students can view their own assignments
+-- RLS Policies (drop if exists to avoid conflicts)
+DROP POLICY IF EXISTS "Students can view their own assignments" ON student_assignments;
 CREATE POLICY "Students can view their own assignments" ON student_assignments
   FOR SELECT
   USING (auth.uid() = student_id);
 
--- Policy: Admins can view all assignments
+DROP POLICY IF EXISTS "Admins can view all assignments" ON student_assignments;
 CREATE POLICY "Admins can view all assignments" ON student_assignments
   FOR SELECT
   USING (
@@ -45,7 +46,7 @@ CREATE POLICY "Admins can view all assignments" ON student_assignments
     )
   );
 
--- Policy: Admins can insert assignments
+DROP POLICY IF EXISTS "Admins can insert assignments" ON student_assignments;
 CREATE POLICY "Admins can insert assignments" ON student_assignments
   FOR INSERT
   WITH CHECK (
@@ -56,7 +57,7 @@ CREATE POLICY "Admins can insert assignments" ON student_assignments
     )
   );
 
--- Policy: Admins can update assignments
+DROP POLICY IF EXISTS "Admins can update assignments" ON student_assignments;
 CREATE POLICY "Admins can update assignments" ON student_assignments
   FOR UPDATE
   USING (
@@ -67,7 +68,7 @@ CREATE POLICY "Admins can update assignments" ON student_assignments
     )
   );
 
--- Policy: Admins can delete assignments
+DROP POLICY IF EXISTS "Admins can delete assignments" ON student_assignments;
 CREATE POLICY "Admins can delete assignments" ON student_assignments
   FOR DELETE
   USING (
@@ -78,7 +79,7 @@ CREATE POLICY "Admins can delete assignments" ON student_assignments
     )
   );
 
--- Policy: Students can update their assignment status (e.g., mark as in_progress, completed)
+DROP POLICY IF EXISTS "Students can update their assignment status" ON student_assignments;
 CREATE POLICY "Students can update their assignment status" ON student_assignments
   FOR UPDATE
   USING (auth.uid() = student_id)
@@ -94,6 +95,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_student_assignments_updated_at ON student_assignments;
 CREATE TRIGGER update_student_assignments_updated_at
   BEFORE UPDATE ON student_assignments
   FOR EACH ROW
@@ -123,6 +125,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to automatically update status
+DROP TRIGGER IF EXISTS update_assignment_status_trigger ON student_assignments;
 CREATE TRIGGER update_assignment_status_trigger
   BEFORE INSERT OR UPDATE ON student_assignments
   FOR EACH ROW

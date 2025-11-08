@@ -19,7 +19,7 @@ function PracticeStatsLoading() {
       totalQuestions={0}
       accuracy={0}
       streak={0}
-      mastery={0}
+      totalTimeSeconds={0}
       isLoading={true}
     />
   )
@@ -61,6 +61,18 @@ export default async function PracticePage() {
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
     .limit(1)
+
+  // Fetch total practice time from all categories
+  const { data: progressSummaries } = await supabase
+    .from('user_progress_summary')
+    .select('total_practice_time_seconds')
+    .eq('user_id', user.id)
+
+  // Calculate total practice time across all categories
+  const totalPracticeTimeSeconds = progressSummaries?.reduce(
+    (sum: number, summary: any) => sum + (summary.total_practice_time_seconds || 0),
+    0
+  ) || 0
 
   // Fetch practice sessions for total questions count and recent sessions
   const { data: practiceSessions } = await supabase
@@ -165,20 +177,51 @@ export default async function PracticePage() {
     })
   )
 
-  // Fetch user metrics for accuracy calculation
-  const { data: userMetrics } = await supabase
-    .from('user_metrics')
-    .select('is_correct')
-    .eq('user_id', user.id)
-    .limit(1000) // Limit for performance
+  // Calculate total questions from practice_sessions table (most accurate)
+  const totalQuestionsAttempted = practiceSessions?.reduce(
+    (sum: number, session: any) => sum + (session.total_questions || 0), 
+    0
+  ) || 0
+  
+  // Calculate total correct answers from practice_sessions
+  const totalCorrectAnswers = practiceSessions?.reduce(
+    (sum: number, session: any) => sum + (session.correct_answers || 0), 
+    0
+  ) || 0
+  
+  // Calculate current accuracy from practice sessions
+  const currentAccuracy = totalQuestionsAttempted > 0 
+    ? (totalCorrectAnswers / totalQuestionsAttempted) * 100 
+    : 0
 
-  // Calculate overall statistics
-  const totalQuestions = practiceSessions?.reduce((sum, session) => sum + (session.total_questions || 0), 0) || 0
-  const totalCorrect = practiceSessions?.reduce((sum, session) => sum + (session.correct_answers || 0), 0) || 0
-  const accuracy = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0
-
-  // Get current streak from user analytics
-  const currentStreak = userAnalytics?.[0]?.current_streak_days || 0
+  // Calculate practice streak (consecutive days with practice)
+  const uniquePracticeDates = new Set(
+    practiceSessions
+      ?.filter((s: any) => s.completed_at || s.created_at)
+      .map((s: any) => {
+        const date = new Date(s.completed_at || s.created_at)
+        return date.toISOString().split('T')[0] // Get YYYY-MM-DD
+      }) || []
+  )
+  
+  // Calculate streak by checking consecutive days
+  let practiceStreak = 0
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  for (let i = 0; i < 365; i++) { // Check up to 1 year back
+    const checkDate = new Date(today)
+    checkDate.setDate(checkDate.getDate() - i)
+    const dateStr = checkDate.toISOString().split('T')[0]
+    
+    if (uniquePracticeDates.has(dateStr)) {
+      practiceStreak++
+    } else if (i > 0) { // Allow today to be skipped if checking from yesterday
+      break
+    }
+  }
+  
+  const currentStreak = practiceStreak
 
   // Build adaptive state map for quick lookup
   const adaptiveStateMap = new Map(
@@ -318,10 +361,10 @@ export default async function PracticePage() {
 
   // Calculate stats for DashboardShell
   const totalTests = testAttempts?.length || 0
-  const totalQuestionsAnswered = (testAttempts?.reduce((sum, attempt) => sum + attempt.total_questions, 0) || 0) + totalQuestions
+  const totalQuestionsAnswered = (testAttempts?.reduce((sum: number, attempt: any) => sum + attempt.total_questions, 0) || 0) + totalQuestionsAttempted
 
   const avgScore = totalTests > 0
-    ? testAttempts!.reduce((sum, attempt) => {
+    ? testAttempts!.reduce((sum: number, attempt: any) => {
         const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
         const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
         const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
@@ -421,10 +464,10 @@ export default async function PracticePage() {
           {/* Quick Stats */}
           <Suspense fallback={<PracticeStatsLoading />}>
             <PracticeStats
-              totalQuestions={totalQuestions}
-              accuracy={accuracy}
+              totalQuestions={totalQuestionsAttempted}
+              accuracy={currentAccuracy}
               streak={currentStreak}
-              mastery={overallMastery}
+              totalTimeSeconds={totalPracticeTimeSeconds}
               isLoading={false}
             />
           </Suspense>
@@ -476,34 +519,17 @@ export default async function PracticePage() {
                   // Get category performance metrics
                   const catMetrics = categoryPerformanceMap.get(category.id)
                   
-                  // Get calculated mastery score from categoryPerformance
-                  const catPerformance = categoryPerformance.find(cp => cp.category_id === category.id)
-                  const calculatedMastery = catPerformance?.mastery_score || 1.0
-                  
-                  // Create adaptive state with performance-based mastery score
-                  const performanceBasedState = state ? {
-                    ...state,
-                    mastery_score: calculatedMastery
-                  } : {
-                    mastery_score: calculatedMastery,
-                    current_difficulty: 'medium' as const,
-                    recent_accuracy: null,
-                    avg_time_seconds: null
-                  }
-
                   return (
                     <PracticeCategoryCard
                       key={category.id}
                       category={category}
                       iconName={iconName}
-                      adaptiveState={performanceBasedState}
+                      adaptiveState={state as any}
                       totalQuestions={catMetrics?.total || 0}
                       categoryAccuracy={catMetrics && catMetrics.total > 0
                         ? (catMetrics.correct / catMetrics.total) * 100
-                        : (state && state.recent_accuracy && state.recent_accuracy.length > 0
-                          ? state.recent_accuracy.reduce((sum, acc) => sum + parseFloat(String(acc || 0)), 0) / state.recent_accuracy.length
-                          : 0)}
-                      lastPracticeDate={null} // Could be fetched from practice_sessions
+                        : 0}
+                      lastPracticeDate={null}
                     />
                   )
                 })}

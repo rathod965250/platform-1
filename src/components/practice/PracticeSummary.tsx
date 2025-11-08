@@ -41,6 +41,7 @@ import {
 interface PracticeSummaryProps {
   session: any
   sessionStats: any
+  sessionSummary: any | null
   metrics: any[]
   recommendations: any[]
   categoryId: string
@@ -89,6 +90,7 @@ interface PracticeSummaryProps {
   skippedCount: number
   incorrectCount: number
   correctCount: number
+  markedCount: number
   finalMastery: number
   startingMastery: number
   masteryChange: number
@@ -97,6 +99,7 @@ interface PracticeSummaryProps {
 export function PracticeSummary({
   session,
   sessionStats,
+  sessionSummary,
   metrics,
   recommendations,
   categoryId,
@@ -109,26 +112,54 @@ export function PracticeSummary({
   skippedCount,
   incorrectCount,
   correctCount,
+  markedCount,
   finalMastery,
   startingMastery,
   masteryChange,
 }: PracticeSummaryProps) {
   const router = useRouter()
   const [showQuestionReview, setShowQuestionReview] = useState(false)
-  const [showPerformanceBreakdown, setShowPerformanceBreakdown] = useState(false)
+  const [showPerformanceBreakdown, setShowPerformanceBreakdown] = useState(true)
   const [showMasteryChart, setShowMasteryChart] = useState(false)
   const [showPerformanceTrends, setShowPerformanceTrends] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const questionsPerPage = 20
 
   const totalQuestions = session.total_questions || metrics.length || 0
+  
+  // Use sessionSummary data if available (most accurate from Enhanced End Session Dialog)
+  const finalAttemptedCount = sessionSummary?.attempted_count ?? attemptedCount
+  const finalCorrectCount = sessionSummary?.correct_count ?? correctCount
+  const finalIncorrectCount = sessionSummary?.incorrect_count ?? incorrectCount
+  const finalSkippedCount = sessionSummary?.skipped_count ?? skippedCount
+  const finalNotAttemptedCount = sessionSummary?.unanswered_count ?? notAttemptedCount
+  const finalMarkedCount = sessionSummary?.marked_count ?? markedCount
+  
+  // Debug logging
+  console.log('=== PRACTICE SUMMARY DATA SOURCE ===')
+  console.log('Using sessionSummary:', !!sessionSummary)
+  console.log('sessionSummary data:', sessionSummary)
+  console.log('Fallback data:', { attemptedCount, correctCount, incorrectCount, skippedCount, notAttemptedCount, markedCount })
+  console.log('Final counts:', { 
+    finalAttemptedCount, 
+    finalCorrectCount, 
+    finalIncorrectCount, 
+    finalSkippedCount, 
+    finalNotAttemptedCount,
+    finalMarkedCount,
+    totalQuestions 
+  })
+  
   // Calculate accuracy based on attempted questions, not total questions
-  const accuracy = attemptedCount > 0 ? (correctCount / attemptedCount) * 100 : 0
-  const timeInMinutes = session.time_taken_seconds
-    ? Math.floor(session.time_taken_seconds / 60)
-    : sessionStats?.session_duration_seconds
-    ? Math.floor(sessionStats.session_duration_seconds / 60)
-    : 0
+  const accuracy = finalAttemptedCount > 0 ? (finalCorrectCount / finalAttemptedCount) * 100 : 0
+  
+  // Use sessionSummary time data if available, otherwise fallback to session or sessionStats
+  const totalTimeSeconds = sessionSummary?.total_time_seconds 
+    ?? session.time_taken_seconds 
+    ?? sessionStats?.session_duration_seconds 
+    ?? 0
+  const timeInMinutes = Math.floor(totalTimeSeconds / 60)
+  const timeInSeconds = totalTimeSeconds % 60
 
   const improvementRate = sessionStats?.improvement_rate || 0
   // Calculate comprehensive time statistics
@@ -172,30 +203,65 @@ export function PracticeSummary({
     return 'text-red-600 dark:text-red-400'
   }
 
-  // Calculate difficulty breakdown
+  // Calculate difficulty breakdown - prioritize sessionSummary data if available
   const difficultyStats = {
-    easy: { total: 0, correct: 0, attempted: 0 },
-    medium: { total: 0, correct: 0, attempted: 0 },
-    hard: { total: 0, correct: 0, attempted: 0 },
+    easy: { 
+      total: sessionSummary?.easy_total ?? 0, 
+      correct: sessionSummary?.easy_correct ?? 0, 
+      attempted: 0 // Will be calculated below
+    },
+    medium: { 
+      total: sessionSummary?.medium_total ?? 0, 
+      correct: sessionSummary?.medium_correct ?? 0, 
+      attempted: 0 
+    },
+    hard: { 
+      total: sessionSummary?.hard_total ?? 0, 
+      correct: sessionSummary?.hard_correct ?? 0, 
+      attempted: 0 
+    },
   }
 
-  metrics.forEach((metric: any) => {
-    // Get difficulty from metric first, then from question, default to 'medium'
-    const diff = (metric.difficulty || metric.question?.difficulty || 'medium').toLowerCase()
-    // Ensure it's a valid difficulty level
-    const validDiff = ['easy', 'medium', 'hard'].includes(diff) ? diff : 'medium'
-    
-    if (difficultyStats[validDiff as keyof typeof difficultyStats]) {
-      difficultyStats[validDiff as keyof typeof difficultyStats].total += 1
-      // Check if question was attempted (is_correct is not null)
-      if (metric.is_correct !== null && metric.is_correct !== undefined) {
-        difficultyStats[validDiff as keyof typeof difficultyStats].attempted += 1
-        if (metric.is_correct === true) {
-          difficultyStats[validDiff as keyof typeof difficultyStats].correct += 1
+  // If sessionSummary doesn't have data, calculate from metrics
+  if (!sessionSummary) {
+    metrics.forEach((metric: any) => {
+      // Get difficulty from metric first, then from question, default to 'medium'
+      const diff = (metric.difficulty || metric.question?.difficulty || 'medium').toLowerCase()
+      // Ensure it's a valid difficulty level
+      const validDiff = ['easy', 'medium', 'hard'].includes(diff) ? diff : 'medium'
+      
+      if (difficultyStats[validDiff as keyof typeof difficultyStats]) {
+        difficultyStats[validDiff as keyof typeof difficultyStats].total += 1
+        // Check if question was attempted (is_correct is not null)
+        if (metric.is_correct !== null && metric.is_correct !== undefined) {
+          difficultyStats[validDiff as keyof typeof difficultyStats].attempted += 1
+          if (metric.is_correct === true) {
+            difficultyStats[validDiff as keyof typeof difficultyStats].correct += 1
+          }
         }
       }
-    }
-  })
+    })
+  }
+  
+  // Calculate attempted count for each difficulty
+  // For sessionSummary data: attempted = correct / (accuracy / 100)
+  // For example: if correct = 8 and accuracy = 80%, then attempted = 8 / 0.8 = 10
+  if (sessionSummary) {
+    difficultyStats.easy.attempted = sessionSummary.easy_accuracy && sessionSummary.easy_accuracy > 0
+      ? Math.round(sessionSummary.easy_correct / (sessionSummary.easy_accuracy / 100))
+      : 0
+    difficultyStats.medium.attempted = sessionSummary.medium_accuracy && sessionSummary.medium_accuracy > 0
+      ? Math.round(sessionSummary.medium_correct / (sessionSummary.medium_accuracy / 100))
+      : 0
+    difficultyStats.hard.attempted = sessionSummary.hard_accuracy && sessionSummary.hard_accuracy > 0
+      ? Math.round(sessionSummary.hard_correct / (sessionSummary.hard_accuracy / 100))
+      : 0
+  }
+  
+  // Debug logging for difficulty breakdown
+  console.log('=== DIFFICULTY BREAKDOWN ===')
+  console.log('Using sessionSummary for difficulty:', !!sessionSummary)
+  console.log('Difficulty stats:', difficultyStats)
 
   // Calculate subcategory breakdown
   const subcategoryStats = new Map<string, { total: number; correct: number; attempted: number; totalTime: number }>()
@@ -325,51 +391,63 @@ export function PracticeSummary({
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-3 sm:py-4 md:py-6 lg:py-8">
       <div className="container mx-auto px-3 sm:px-4 md:px-5 lg:px-6 max-w-7xl">
         {/* Hero Performance Card */}
-        <Card className="mb-3 sm:mb-4 md:mb-6 lg:mb-8 bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 dark:from-primary/10 dark:via-accent/10 dark:to-primary/20 border-primary/20 dark:border-primary/30 shadow-lg">
-          <CardContent className="p-4 sm:p-5 md:p-6 lg:p-8">
+        <Card className="mb-3 sm:mb-4 md:mb-6 lg:mb-8 relative overflow-hidden bg-gradient-to-br from-primary/10 via-accent/10 to-chart-2/10 dark:from-primary/20 dark:via-accent/20 dark:to-chart-2/20 border-2 border-primary/30 dark:border-primary/40 shadow-2xl hover:shadow-primary/20 transition-all duration-300">
+          {/* Decorative Background Elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl -z-10"></div>
+          
+          <CardContent className="p-4 sm:p-5 md:p-6 lg:p-8 relative z-10">
             <div className="text-center mb-3 sm:mb-4 md:mb-6">
-              <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                <Trophy className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-primary" />
-                <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-foreground">
+              <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 rounded-full bg-primary/10 dark:bg-primary/20 ring-4 ring-primary/20 dark:ring-primary/30">
+                  <Trophy className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-primary animate-pulse" />
+                </div>
+                <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-primary via-chart-2 to-primary bg-clip-text text-transparent">
                   Practice Session Complete!
                 </h1>
               </div>
-              <p className={`text-sm sm:text-base md:text-lg lg:text-xl font-semibold ${achievement.color} mb-2`}>
-                {achievement.message}
-              </p>
-              <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 dark:from-primary/20 dark:to-accent/20 border border-primary/20 dark:border-primary/30 mb-3">
+                <p className={`text-sm sm:text-base md:text-lg lg:text-xl font-bold ${achievement.color}`}>
+                  {achievement.message}
+                </p>
+              </div>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground font-medium">
                 {session.category?.name || 'Practice Session'}
               </p>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
               {/* Accuracy */}
-              <div className="text-center p-3 sm:p-4 md:p-5 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50">
-                <div className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-1 sm:mb-2 ${getAccuracyColor()}`}>
+              <div className="text-center p-3 sm:p-4 md:p-5 rounded-xl bg-gradient-to-br from-card via-card to-muted/30 backdrop-blur-sm border-2 border-border/50 hover:border-primary/30 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                <div className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-1 sm:mb-2 ${getAccuracyColor()} group-hover:scale-110 transition-transform duration-300`}>
                   {accuracy.toFixed(1)}%
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Accuracy</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Accuracy</div>
                 <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5 sm:mt-1">
-                  {correctCount} / {attemptedCount > 0 ? attemptedCount : totalQuestions} correct
+                  {finalCorrectCount} / {finalAttemptedCount > 0 ? finalAttemptedCount : totalQuestions} correct
                 </div>
               </div>
 
               {/* Time */}
-              <div className="text-center p-3 sm:p-4 md:p-5 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-muted-foreground mx-auto mb-1 sm:mb-2" />
-                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-foreground">
-                  {timeInMinutes}m
+              <div className="text-center p-3 sm:p-4 md:p-5 rounded-xl bg-gradient-to-br from-card via-card to-muted/30 backdrop-blur-sm border-2 border-border/50 hover:border-chart-2/30 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                <div className="inline-flex p-2 rounded-full bg-chart-2/10 dark:bg-chart-2/20 mb-2">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-chart-2 group-hover:animate-spin" />
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Time Taken</div>
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-foreground group-hover:scale-110 transition-transform duration-300">
+                  {timeInMinutes > 0 ? `${timeInMinutes}m ${timeInSeconds}s` : `${totalTimeSeconds}s`}
+                </div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Time Taken</div>
               </div>
 
               {/* Mastery Score */}
-              <div className="text-center p-3 sm:p-4 md:p-5 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50">
-                <Target className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-muted-foreground mx-auto mb-1 sm:mb-2" />
-                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-foreground">
+              <div className="text-center p-3 sm:p-4 md:p-5 rounded-xl bg-gradient-to-br from-card via-card to-muted/30 backdrop-blur-sm border-2 border-border/50 hover:border-chart-1/30 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                <div className="inline-flex p-2 rounded-full bg-chart-1/10 dark:bg-chart-1/20 mb-2">
+                  <Target className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-chart-1 group-hover:rotate-12 transition-transform duration-300" />
+                </div>
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-foreground group-hover:scale-110 transition-transform duration-300">
                   {(finalMastery * 100).toFixed(0)}%
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Mastery Score</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Mastery Score</div>
                 {masteryChange !== 0 && (
                   <div className="flex items-center justify-center gap-1 mt-0.5 sm:mt-1">
                     {masteryChange > 0 ? (
@@ -385,79 +463,88 @@ export function PracticeSummary({
               </div>
 
               {/* Improvement */}
-              <div className="text-center p-3 sm:p-4 md:p-5 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50">
-                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-muted-foreground mx-auto mb-1 sm:mb-2" />
-                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-foreground">
+              <div className="text-center p-3 sm:p-4 md:p-5 rounded-xl bg-gradient-to-br from-card via-card to-muted/30 backdrop-blur-sm border-2 border-border/50 hover:border-accent/30 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                <div className="inline-flex p-2 rounded-full bg-accent/10 dark:bg-accent/20 mb-2">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-accent-foreground group-hover:translate-y-[-2px] transition-transform duration-300" />
+                </div>
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-foreground group-hover:scale-110 transition-transform duration-300">
                   {improvementRate >= 0 ? '+' : ''}
                   {improvementRate.toFixed(1)}%
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Improvement</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Improvement</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Enhanced Statistics Section */}
-        <Card className="mb-3 sm:mb-4 md:mb-6 lg:mb-8">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-sm sm:text-base md:text-lg font-semibold text-foreground">Session Statistics</CardTitle>
-            <CardDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+        <Card className="mb-3 sm:mb-4 md:mb-6 lg:mb-8 border-2 border-border/50 hover:border-primary/20 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-card via-card to-muted/10">
+          <CardHeader className="pb-2 sm:pb-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary/10 dark:bg-primary/20">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              </div>
+              <CardTitle className="text-sm sm:text-base md:text-lg font-bold text-foreground">Session Statistics</CardTitle>
+            </div>
+            <CardDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium mt-1">
               Comprehensive breakdown of your practice session
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-lg border border-border bg-card">
+              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-xl border-2 border-chart-1/30 bg-gradient-to-br from-chart-1/5 to-chart-1/10 dark:from-chart-1/10 dark:to-chart-1/20 hover:shadow-lg transition-all duration-300 group">
                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-chart-1 mb-0.5 sm:mb-1">
-                  {attemptedCount}
+                  {finalAttemptedCount}
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Attempted</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Attempted</div>
                 <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5">
-                  {totalQuestions > 0 ? ((attemptedCount / totalQuestions) * 100).toFixed(0) : 0}%
+                  {totalQuestions > 0 ? ((finalAttemptedCount / totalQuestions) * 100).toFixed(0) : 0}%
                 </div>
               </div>
-              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-lg border border-border bg-card">
-                <div className="text-lg sm:text-xl md:text-2xl font-bold text-muted-foreground mb-0.5 sm:mb-1">
-                  {notAttemptedCount}
+              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-xl border-2 border-border/50 bg-gradient-to-br from-muted/20 to-muted/30 hover:shadow-lg transition-all duration-300 group">
+                <div className="text-lg sm:text-xl md:text-2xl font-bold text-muted-foreground mb-0.5 sm:mb-1 group-hover:scale-110 transition-transform duration-300">
+                  {finalNotAttemptedCount}
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Not Attempted</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Not Attempted</div>
                 <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5">
-                  {totalQuestions > 0 ? ((notAttemptedCount / totalQuestions) * 100).toFixed(0) : 0}%
+                  {totalQuestions > 0 ? ((finalNotAttemptedCount / totalQuestions) * 100).toFixed(0) : 0}%
                 </div>
               </div>
-              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-lg border border-border bg-card">
-                <div className="text-lg sm:text-xl md:text-2xl font-bold text-chart-3 mb-0.5 sm:mb-1">
-                  {skippedCount}
+              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-xl border-2 border-chart-3/30 bg-gradient-to-br from-chart-3/5 to-chart-3/10 dark:from-chart-3/10 dark:to-chart-3/20 hover:shadow-lg transition-all duration-300 group">
+                <div className="text-lg sm:text-xl md:text-2xl font-bold text-chart-3 mb-0.5 sm:mb-1 group-hover:scale-110 transition-transform duration-300">
+                  {finalSkippedCount}
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Skipped</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Skipped</div>
                 <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5">
-                  {totalQuestions > 0 ? ((skippedCount / totalQuestions) * 100).toFixed(0) : 0}%
+                  {totalQuestions > 0 ? ((finalSkippedCount / totalQuestions) * 100).toFixed(0) : 0}%
                 </div>
               </div>
-              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-lg border border-chart-1/30 bg-chart-1/5 dark:bg-chart-1/10">
+              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-xl border-2 border-chart-1/40 bg-gradient-to-br from-chart-1/10 to-chart-1/20 dark:from-chart-1/20 dark:to-chart-1/30 shadow-md hover:shadow-lg transition-all duration-300 group">
                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-chart-1 mb-0.5 sm:mb-1">
-                  {correctCount}
+                  {finalCorrectCount}
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Correct</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-chart-1 font-bold uppercase tracking-wide">Correct</div>
                 <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5">
-                  {attemptedCount > 0 ? ((correctCount / attemptedCount) * 100).toFixed(0) : 0}%
+                  {finalAttemptedCount > 0 ? ((finalCorrectCount / finalAttemptedCount) * 100).toFixed(0) : 0}%
                 </div>
               </div>
-              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-lg border border-destructive/30 bg-destructive/5 dark:bg-destructive/10">
-                <div className="text-lg sm:text-xl md:text-2xl font-bold text-destructive mb-0.5 sm:mb-1">
-                  {incorrectCount}
+              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-xl border-2 border-destructive/40 bg-gradient-to-br from-destructive/10 to-destructive/20 dark:from-destructive/20 dark:to-destructive/30 shadow-md hover:shadow-lg transition-all duration-300 group">
+                <div className="text-lg sm:text-xl md:text-2xl font-bold text-destructive mb-0.5 sm:mb-1 group-hover:scale-110 transition-transform duration-300">
+                  {finalIncorrectCount}
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Incorrect</div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-destructive font-bold uppercase tracking-wide">Incorrect</div>
                 <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5">
-                  {attemptedCount > 0 ? ((incorrectCount / attemptedCount) * 100).toFixed(0) : 0}%
+                  {finalAttemptedCount > 0 ? ((finalIncorrectCount / finalAttemptedCount) * 100).toFixed(0) : 0}%
                 </div>
               </div>
-              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-lg border border-border bg-card">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-muted-foreground mx-auto mb-0.5 sm:mb-1" />
-                <div className="text-base sm:text-lg md:text-xl font-semibold text-foreground">
-                  {avgTime}s
+              <div className="text-center p-2.5 sm:p-3 md:p-4 rounded-xl border-2 border-chart-2/30 bg-gradient-to-br from-chart-2/5 to-chart-2/10 dark:from-chart-2/10 dark:to-chart-2/20 hover:shadow-lg transition-all duration-300 group">
+                <div className="inline-flex p-1.5 rounded-full bg-chart-2/20 dark:bg-chart-2/30 mb-1">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-chart-2" />
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium">Avg Time</div>
+                <div className="text-base sm:text-lg md:text-xl font-bold text-foreground group-hover:scale-110 transition-transform duration-300">
+                  {sessionSummary?.avg_time_per_question ?? avgTime}s
+                </div>
+                <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-semibold uppercase tracking-wide">Avg Time</div>
               </div>
             </div>
           </CardContent>
@@ -557,19 +644,71 @@ export function PracticeSummary({
 
               {recommendations.length > 0 && (
                 <div className="space-y-2 sm:space-y-2.5">
-                  {recommendations.slice(0, 2).map((rec: any, index: number) => (
-                    <div
-                      key={index}
-                      className="p-2.5 sm:p-3 md:p-4 rounded-lg border border-border bg-card"
-                    >
-                      <div className="font-semibold text-xs sm:text-sm md:text-base text-foreground mb-1">
-                        {rec.title}
+                  {recommendations.slice(0, 3).map((rec: any, index: number) => {
+                    // Determine icon and color based on type
+                    const typeConfig = {
+                      practice: {
+                        icon: '📚',
+                        bgClass: 'bg-blue-50 dark:bg-blue-950/20',
+                        borderClass: 'border-blue-200 dark:border-blue-800',
+                        badgeClass: 'bg-blue-500 text-white'
+                      },
+                      improve: {
+                        icon: '📈',
+                        bgClass: 'bg-green-50 dark:bg-green-950/20',
+                        borderClass: 'border-green-200 dark:border-green-800',
+                        badgeClass: 'bg-green-500 text-white'
+                      },
+                      maintain: {
+                        icon: '⭐',
+                        bgClass: 'bg-yellow-50 dark:bg-yellow-950/20',
+                        borderClass: 'border-yellow-200 dark:border-yellow-800',
+                        badgeClass: 'bg-yellow-500 text-white'
+                      },
+                      review: {
+                        icon: '🔄',
+                        bgClass: 'bg-purple-50 dark:bg-purple-950/20',
+                        borderClass: 'border-purple-200 dark:border-purple-800',
+                        badgeClass: 'bg-purple-500 text-white'
+                      }
+                    }
+                    
+                    const config = typeConfig[rec.type as keyof typeof typeConfig] || typeConfig.practice
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`p-2.5 sm:p-3 md:p-4 rounded-lg border ${config.borderClass} ${config.bgClass} transition-all hover:shadow-md`}
+                      >
+                        <div className="flex items-start gap-2 sm:gap-3">
+                          <span className="text-lg sm:text-xl flex-shrink-0 mt-0.5">{config.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="font-semibold text-xs sm:text-sm md:text-base text-foreground">
+                                {rec.title}
+                              </div>
+                              {rec.type && (
+                                <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium ${config.badgeClass}`}>
+                                  {rec.type.toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+                              {rec.description}
+                            </div>
+                            {rec.topic && (
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                <span className="text-[9px] sm:text-[10px] text-muted-foreground">Topic:</span>
+                                <span className="text-[9px] sm:text-[10px] font-medium text-foreground bg-muted px-2 py-0.5 rounded">
+                                  {rec.topic}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
-                        {rec.description}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -619,15 +758,15 @@ export function PracticeSummary({
               <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 text-[10px] sm:text-xs md:text-sm pt-2 sm:pt-3 border-t border-border">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded border-2 border-chart-1 bg-chart-1"></div>
-                  <span className="text-muted-foreground">Correct ({correctCount})</span>
+                  <span className="text-muted-foreground">Correct ({finalCorrectCount})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded border-2 border-destructive bg-destructive"></div>
-                  <span className="text-muted-foreground">Incorrect ({incorrectCount})</span>
+                  <span className="text-muted-foreground">Incorrect ({finalIncorrectCount})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded border-2 border-border bg-muted"></div>
-                  <span className="text-muted-foreground">Not Attempted ({notAttemptedCount})</span>
+                  <span className="text-muted-foreground">Not Attempted ({finalNotAttemptedCount})</span>
                 </div>
               </div>
             </CardContent>
@@ -743,152 +882,266 @@ export function PracticeSummary({
                     const stats = difficultyStats[diff]
                     const accuracy = stats.attempted > 0 ? (stats.correct / stats.attempted) * 100 : 0
                     const timeStats = timeByDifficulty[diff]
+                    
+                    // Define colors for each difficulty
+                    const difficultyColors = {
+                      easy: {
+                        badge: 'bg-green-500 text-white border-green-600 dark:bg-green-600 dark:border-green-700',
+                        card: 'border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20 dark:to-transparent hover:from-green-50 dark:hover:from-green-950/30',
+                        progress: 'bg-green-500/20 dark:bg-green-500/30',
+                        progressBar: '[&>div]:bg-green-500 dark:[&>div]:bg-green-400',
+                        text: 'text-green-700 dark:text-green-400'
+                      },
+                      medium: {
+                        badge: 'bg-purple-500 text-white border-purple-600 dark:bg-purple-600 dark:border-purple-700',
+                        card: 'border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/50 to-transparent dark:from-purple-950/20 dark:to-transparent hover:from-purple-50 dark:hover:from-purple-950/30',
+                        progress: 'bg-purple-500/20 dark:bg-purple-500/30',
+                        progressBar: '[&>div]:bg-purple-500 dark:[&>div]:bg-purple-400',
+                        text: 'text-purple-700 dark:text-purple-400'
+                      },
+                      hard: {
+                        badge: 'bg-red-500 text-white border-red-600 dark:bg-red-600 dark:border-red-700',
+                        card: 'border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-950/20 dark:to-transparent hover:from-red-50 dark:hover:from-red-950/30',
+                        progress: 'bg-red-500/20 dark:bg-red-500/30',
+                        progressBar: '[&>div]:bg-red-500 dark:[&>div]:bg-red-400',
+                        text: 'text-red-700 dark:text-red-400'
+                      }
+                    }
+                    
+                    const colors = difficultyColors[diff]
+                    
                     return (
-                      <div key={diff} className="p-2.5 sm:p-3 md:p-4 rounded-lg border border-border bg-card">
+                      <div 
+                        key={diff} 
+                        className={`p-2.5 sm:p-3 md:p-4 rounded-lg border transition-all duration-300 ${colors.card} group cursor-default`}
+                      >
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1.5 sm:mb-2">
                           <div className="flex items-center gap-1.5 sm:gap-2">
                             <Badge
-                              variant={
-                                diff === 'easy' ? 'default' : diff === 'hard' ? 'destructive' : 'secondary'
-                              }
-                              className="capitalize text-[9px] sm:text-[10px] md:text-xs px-1.5 py-0.5"
+                              className={`capitalize text-[9px] sm:text-[10px] md:text-xs px-2 py-0.5 font-semibold ${colors.badge}`}
                             >
                               {diff}
                             </Badge>
-                            <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
-                              {stats.attempted} attempted
+                            <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-foreground">
+                              {stats.correct}/{stats.total}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 sm:gap-4">
                             <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
-                              Avg Time: {timeStats.avg}s
+                              Avg Time: <span className="font-semibold">{timeStats.avg}s</span>
                             </span>
-                            <span className="text-xs sm:text-sm md:text-base font-semibold text-foreground">
+                            <span className={`text-xs sm:text-sm md:text-base font-bold ${colors.text}`}>
                               {accuracy.toFixed(1)}%
                             </span>
                           </div>
                         </div>
-                        <Progress value={accuracy} className="h-1.5 sm:h-2" />
+                        <Progress 
+                          value={accuracy} 
+                          className={`h-2 sm:h-2.5 ${colors.progress} ${colors.progressBar} transition-all duration-500`}
+                        />
                       </div>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Difficulty Distribution Chart - Enhanced Interactive */}
-              <div>
-                <h3 className="text-xs sm:text-sm md:text-base font-semibold text-foreground mb-2 sm:mb-3">
-                  Questions by Difficulty
+              {/* Interactive Stacked Bar Chart */}
+              <div className="p-3 sm:p-4 rounded-xl border border-border bg-gradient-to-br from-card to-muted/20">
+                <h3 className="text-xs sm:text-sm md:text-base font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full"></span>
+                  Difficulty Distribution Chart
                 </h3>
-                <div className="h-[200px] sm:h-[250px] md:h-[300px] w-full">
+                
+                {/* Interactive Stacked Bar Chart */}
+                <div className="h-[280px] sm:h-[320px] md:h-[360px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={[
                         { 
                           name: 'Easy', 
-                          total: difficultyStats.easy.total,
-                          attempted: difficultyStats.easy.attempted,
                           correct: difficultyStats.easy.correct,
-                          accuracy: difficultyStats.easy.attempted > 0 ? (difficultyStats.easy.correct / difficultyStats.easy.attempted) * 100 : 0,
-                          color: 'hsl(var(--chart-1))'
+                          incorrect: difficultyStats.easy.attempted - difficultyStats.easy.correct,
+                          unattempted: difficultyStats.easy.total - difficultyStats.easy.attempted,
+                          total: difficultyStats.easy.total,
+                          accuracy: difficultyStats.easy.attempted > 0 ? ((difficultyStats.easy.correct / difficultyStats.easy.attempted) * 100).toFixed(1) : 0
                         },
                         { 
                           name: 'Medium', 
-                          total: difficultyStats.medium.total,
-                          attempted: difficultyStats.medium.attempted,
                           correct: difficultyStats.medium.correct,
-                          accuracy: difficultyStats.medium.attempted > 0 ? (difficultyStats.medium.correct / difficultyStats.medium.attempted) * 100 : 0,
-                          color: 'hsl(var(--primary))'
+                          incorrect: difficultyStats.medium.attempted - difficultyStats.medium.correct,
+                          unattempted: difficultyStats.medium.total - difficultyStats.medium.attempted,
+                          total: difficultyStats.medium.total,
+                          accuracy: difficultyStats.medium.attempted > 0 ? ((difficultyStats.medium.correct / difficultyStats.medium.attempted) * 100).toFixed(1) : 0
                         },
                         { 
                           name: 'Hard', 
-                          total: difficultyStats.hard.total,
-                          attempted: difficultyStats.hard.attempted,
                           correct: difficultyStats.hard.correct,
-                          accuracy: difficultyStats.hard.attempted > 0 ? (difficultyStats.hard.correct / difficultyStats.hard.attempted) * 100 : 0,
-                          color: 'hsl(var(--destructive))'
+                          incorrect: difficultyStats.hard.attempted - difficultyStats.hard.correct,
+                          unattempted: difficultyStats.hard.total - difficultyStats.hard.attempted,
+                          total: difficultyStats.hard.total,
+                          accuracy: difficultyStats.hard.attempted > 0 ? ((difficultyStats.hard.correct / difficultyStats.hard.attempted) * 100).toFixed(1) : 0
                         },
                       ]}
-                      margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+                      layout="vertical"
+                      margin={{ top: 10, right: 30, left: 80, bottom: 10 }}
+                      barSize={50}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                      <CartesianGrid 
+                        strokeDasharray="3 3" 
+                        stroke="hsl(var(--border))" 
+                        opacity={0.2}
+                        horizontal={false}
+                      />
                       <XAxis 
-                        dataKey="name" 
+                        type="number"
                         stroke="hsl(var(--muted-foreground))" 
-                        style={{ fontSize: '11px', fontWeight: 500 }} 
+                        style={{ fontSize: '11px' }} 
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                         axisLine={{ stroke: 'hsl(var(--border))' }}
+                        tickLine={false}
+                        label={{ 
+                          value: 'Number of Questions', 
+                          position: 'insideBottom', 
+                          offset: -5,
+                          style: { fontSize: '11px', fill: 'hsl(var(--muted-foreground))', fontWeight: 600 } 
+                        }}
                       />
                       <YAxis 
-                        stroke="hsl(var(--muted-foreground))" 
-                        style={{ fontSize: '10px' }} 
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                        label={{ value: 'Questions', angle: -90, position: 'insideLeft', style: { fontSize: '10px', fill: 'hsl(var(--muted-foreground))' } }}
+                        type="category"
+                        dataKey="name" 
+                        stroke="hsl(var(--foreground))" 
+                        style={{ fontSize: '13px', fontWeight: 600 }} 
+                        tick={{ fill: 'hsl(var(--foreground))' }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={70}
                       />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '2px solid hsl(var(--border))',
-                          borderRadius: 'var(--radius)',
-                          fontSize: '11px',
-                          padding: '8px 12px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          padding: '12px 16px',
+                          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15)',
                         }}
                         cursor={{ fill: 'hsl(var(--muted))', opacity: 0.1 }}
-                        formatter={(value: any, name: string, props: any) => {
-                          if (name === 'Total') {
-                            return [`${value} questions`, 'Total Questions']
-                          } else if (name === 'Attempted') {
-                            return [`${value} questions`, 'Attempted']
-                          } else if (name === 'Correct') {
-                            return [`${value} questions`, 'Correct']
-                          } else if (name === 'Accuracy') {
-                            return [`${value.toFixed(1)}%`, 'Accuracy']
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload
+                            return (
+                              <div className="bg-card border-2 border-border rounded-xl p-3 shadow-lg">
+                                <p className="font-bold text-foreground mb-2 text-sm">{data.name} Questions</p>
+                                <div className="space-y-1.5 text-xs">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-3 h-3 rounded bg-green-500"></div>
+                                      <span className="text-muted-foreground">Correct:</span>
+                                    </div>
+                                    <span className="font-bold text-green-600 dark:text-green-400">{data.correct}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-3 h-3 rounded bg-red-500"></div>
+                                      <span className="text-muted-foreground">Incorrect:</span>
+                                    </div>
+                                    <span className="font-bold text-red-600 dark:text-red-400">{data.incorrect}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-3 h-3 rounded bg-gray-400"></div>
+                                      <span className="text-muted-foreground">Unattempted:</span>
+                                    </div>
+                                    <span className="font-bold text-muted-foreground">{data.unattempted}</span>
+                                  </div>
+                                  <div className="pt-2 mt-2 border-t border-border/50">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-muted-foreground">Total:</span>
+                                      <span className="font-bold text-foreground">{data.total}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-muted-foreground">Accuracy:</span>
+                                      <span className={`font-bold ${
+                                        data.accuracy >= 70 ? 'text-green-600 dark:text-green-400' :
+                                        data.accuracy >= 50 ? 'text-yellow-600 dark:text-yellow-400' :
+                                        'text-red-600 dark:text-red-400'
+                                      }`}>{data.accuracy}%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
                           }
-                          return [value, name]
+                          return null
                         }}
-                        labelFormatter={(label) => `Difficulty: ${label}`}
                       />
                       <Legend 
-                        wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
-                        iconType="circle"
+                        wrapperStyle={{ 
+                          fontSize: '12px', 
+                          paddingTop: '15px',
+                          fontWeight: 500
+                        }}
+                        iconType="square"
+                        iconSize={12}
                       />
-                      <Bar 
-                        dataKey="total" 
-                        name="Total"
-                        fill="hsl(var(--muted-foreground))" 
-                        radius={[4, 4, 0, 0]}
-                        opacity={0.3}
-                      />
-                      <Bar 
-                        dataKey="attempted" 
-                        name="Attempted"
-                        fill="hsl(var(--primary))" 
-                        radius={[4, 4, 0, 0]}
-                        opacity={0.6}
-                      />
+                      {/* Stacked Bars */}
                       <Bar 
                         dataKey="correct" 
+                        stackId="a"
                         name="Correct"
-                        fill="hsl(var(--chart-1))" 
-                        radius={[4, 4, 0, 0]}
+                        fill="#22c55e"
+                        radius={[0, 4, 4, 0]}
+                      />
+                      <Bar 
+                        dataKey="incorrect" 
+                        stackId="a"
+                        name="Incorrect"
+                        fill="#ef4444"
+                        radius={[0, 0, 0, 0]}
+                      />
+                      <Bar 
+                        dataKey="unattempted" 
+                        stackId="a"
+                        name="Unattempted"
+                        fill="#9ca3af"
+                        radius={[0, 4, 4, 0]}
+                        opacity={0.6}
                       />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                {/* Chart Legend */}
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-muted-foreground/30"></div>
-                    <span className="text-muted-foreground">Total: {difficultyStats.easy.total + difficultyStats.medium.total + difficultyStats.hard.total}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-primary/60"></div>
-                    <span className="text-muted-foreground">Attempted: {difficultyStats.easy.attempted + difficultyStats.medium.attempted + difficultyStats.hard.attempted}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-chart-1"></div>
-                    <span className="text-muted-foreground">Correct: {difficultyStats.easy.correct + difficultyStats.medium.correct + difficultyStats.hard.correct}</span>
+                
+                {/* Summary Cards */}
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                    <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+                      <span className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Total</span>
+                      <span className="text-lg sm:text-xl font-bold text-foreground">
+                        {difficultyStats.easy.total + difficultyStats.medium.total + difficultyStats.hard.total}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-lg bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 transition-colors">
+                      <span className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Correct</span>
+                      <span className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">
+                        {difficultyStats.easy.correct + difficultyStats.medium.correct + difficultyStats.hard.correct}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors">
+                      <span className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Incorrect</span>
+                      <span className="text-lg sm:text-xl font-bold text-red-600 dark:text-red-400">
+                        {(difficultyStats.easy.attempted - difficultyStats.easy.correct) + 
+                         (difficultyStats.medium.attempted - difficultyStats.medium.correct) + 
+                         (difficultyStats.hard.attempted - difficultyStats.hard.correct)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 transition-colors">
+                      <span className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Skipped</span>
+                      <span className="text-lg sm:text-xl font-bold text-muted-foreground">
+                        {(difficultyStats.easy.total - difficultyStats.easy.attempted) + 
+                         (difficultyStats.medium.total - difficultyStats.medium.attempted) + 
+                         (difficultyStats.hard.total - difficultyStats.hard.attempted)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1482,17 +1735,22 @@ export function PracticeSummary({
         )}
 
         {/* Session Configuration - Footer */}
-        <Card className="mb-3 sm:mb-4 md:mb-6 lg:mb-8">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-sm sm:text-base md:text-lg font-semibold text-foreground">Session Information</CardTitle>
-            <CardDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+        <Card className="mb-3 sm:mb-4 md:mb-6 lg:mb-8 border-2 border-border/50 hover:border-primary/20 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-card via-card to-muted/10">
+          <CardHeader className="pb-2 sm:pb-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary/10 dark:bg-primary/20">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </div>
+              <CardTitle className="text-sm sm:text-base md:text-lg font-bold text-foreground">Session Information</CardTitle>
+            </div>
+            <CardDescription className="text-[10px] sm:text-xs md:text-sm text-muted-foreground font-medium mt-1">
               Details about this practice session
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
-              <div>
-                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Session Date</div>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-muted/20 to-muted/30 border border-border/50 hover:shadow-md transition-all duration-300">
+                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wide">Session Date</div>
                 <div className="font-medium text-foreground text-xs sm:text-sm md:text-base">
                   {new Date(session.completed_at || session.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
@@ -1507,8 +1765,8 @@ export function PracticeSummary({
                   })}
                 </div>
               </div>
-              <div>
-                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Duration</div>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-chart-2/5 to-chart-2/10 dark:from-chart-2/10 dark:to-chart-2/20 border border-chart-2/30 hover:shadow-md transition-all duration-300">
+                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wide">Duration</div>
                 <div className="font-medium text-foreground text-xs sm:text-sm md:text-base">
                   {timeInMinutes} minutes
                 </div>
@@ -1516,8 +1774,8 @@ export function PracticeSummary({
                   {session.time_taken_seconds || sessionStats?.session_duration_seconds || 0} seconds
                 </div>
               </div>
-              <div>
-                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Category</div>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border border-primary/30 hover:shadow-md transition-all duration-300">
+                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wide">Category</div>
                 <div className="font-medium text-foreground text-xs sm:text-sm md:text-base">
                   {session.category?.name || 'Practice Session'}
                 </div>
@@ -1525,14 +1783,19 @@ export function PracticeSummary({
                   {questionCount} questions configured
                 </div>
               </div>
-              <div>
-                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Topics Practiced</div>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-accent/5 to-accent/10 dark:from-accent/10 dark:to-accent/20 border border-accent/30 hover:shadow-md transition-all duration-300">
+                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wide">Topics Practiced</div>
                 <div className="font-medium text-foreground text-xs sm:text-sm md:text-base">
-                  {selectedSubcategories.length > 0 ? selectedSubcategories.length : subcategoryStats.size} topics
+                  {subcategoryStats.size} {subcategoryStats.size === 1 ? 'topic' : 'topics'}
                 </div>
-                {selectedSubcategories.length > 0 && selectedSubcategories.length <= 5 && (
+                {subcategoryStats.size > 0 && subcategoryStats.size <= 5 && (
                   <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5 sm:mt-1 line-clamp-2">
-                    {selectedSubcategories.join(', ')}
+                    {Array.from(subcategoryStats.keys()).join(', ')}
+                  </div>
+                )}
+                {subcategoryStats.size > 5 && (
+                  <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground/80 mt-0.5 sm:mt-1">
+                    {Array.from(subcategoryStats.keys()).slice(0, 3).join(', ')} +{subcategoryStats.size - 3} more
                   </div>
                 )}
               </div>

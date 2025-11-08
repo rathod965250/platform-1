@@ -21,6 +21,8 @@ import {
   BookOpen,
   MessageSquare,
   Bell,
+  Shield,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -473,7 +475,20 @@ function DashboardShellContent({
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Admin Dashboard Switch - Only for admins */}
+                {profile?.role === 'admin' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/admin')}
+                    className="flex items-center gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span className="hidden sm:inline">Admin Panel</span>
+                  </Button>
+                )}
+
                 {/* Notifications Bell */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
