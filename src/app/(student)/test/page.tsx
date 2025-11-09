@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { FileText, Building2, Upload } from 'lucide-react'
 import Link from 'next/link'
+import { sanitizeSupabaseResult, extractRelationship } from '@/lib/supabase/utils'
 
 import { Metadata } from 'next'
 
