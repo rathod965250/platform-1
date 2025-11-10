@@ -89,13 +89,18 @@ export function TestResults({
   answers.forEach((answer) => {
     // Safely extract category name, handling nested relationships
     let categoryName = 'Other'
-    if (answer.question) {
-      const question = answer.question
-      if (question.subcategory) {
-        const subcategory = Array.isArray(question.subcategory) ? question.subcategory[0] : question.subcategory
+    // Handle both 'question' and 'questions' property names
+    const question = answer.question || answer.questions
+    if (question) {
+      // Handle both 'subcategory' and 'subcategories' property names
+      const subcategoryData = question.subcategory || question.subcategories
+      if (subcategoryData) {
+        const subcategory = Array.isArray(subcategoryData) ? subcategoryData[0] : subcategoryData
         if (subcategory && typeof subcategory === 'object' && !('cardinality' in subcategory)) {
-          if (subcategory.category) {
-            const category = Array.isArray(subcategory.category) ? subcategory.category[0] : subcategory.category
+          // Handle both 'category' and 'categories' property names
+          const categoryData = subcategory.category || subcategory.categories
+          if (categoryData) {
+            const category = Array.isArray(categoryData) ? categoryData[0] : categoryData
             if (category && typeof category === 'object' && 'name' in category && !('cardinality' in category)) {
               categoryName = String(category.name)
             }
@@ -134,7 +139,9 @@ export function TestResults({
   const subcategoryStats: Record<string, { total: number; correct: number }> = {}
 
   answers.forEach((answer) => {
-    const subcat = answer.question?.subcategory?.name
+    const question = answer.question || answer.questions
+    const subcategoryData = question?.subcategory || question?.subcategories
+    const subcat = Array.isArray(subcategoryData) ? subcategoryData[0]?.name : subcategoryData?.name
     if (subcat) {
       if (!subcategoryStats[subcat]) {
         subcategoryStats[subcat] = { total: 0, correct: 0 }
@@ -160,7 +167,8 @@ export function TestResults({
   }
 
   answers.forEach((answer) => {
-    const difficulty = answer.question?.difficulty || 'medium'
+    const question = answer.question || answer.questions
+    const difficulty = question?.difficulty || 'medium'
     if (difficultyStats[difficulty as keyof typeof difficultyStats]) {
       difficultyStats[difficulty as keyof typeof difficultyStats].total += 1
       if (answer.is_correct) {
@@ -641,7 +649,7 @@ export function TestResults({
               </CardHeader>
               <CardContent className="space-y-4">
                 {filteredAnswers.map((answer, index) => {
-                  const question = answer.question
+                  const question = answer.question || answer.questions
                   const isExpanded = expandedQuestions.has(answer.id)
 
                   return (

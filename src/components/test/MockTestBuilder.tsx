@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { formatTestTitleDate } from '@/lib/utils/date-formatter'
 
 interface Subcategory {
   id: string
@@ -299,9 +300,11 @@ export function MockTestBuilder({ categories, userId }: MockTestBuilderProps) {
       // Create a custom mock test
       const timestamp = Date.now()
       const testSlug = `custom-mock-${userId.slice(0, 8)}-${timestamp}`
+      const currentDate = new Date()
+      const formattedDateTime = formatTestTitleDate(currentDate)
       
       const testData = {
-        title: `Custom Mock Test - ${new Date().toLocaleDateString()}`,
+        title: `Mock Test - ${formattedDateTime}`,
         slug: testSlug,
         test_type: 'mock',
         duration_minutes: totalDurationMinutes,

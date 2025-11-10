@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { SystemCheckCard } from '@/components/test/SystemCheckCard'
 import {
   Clock,
   FileText,
@@ -210,35 +211,8 @@ export default function TestInstructions({
 
           {/* Sidebar - System Check & Start */}
           <div className="space-y-6">
-            {/* System Requirements */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">System Check</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950/20">
-                  <div className="flex items-center gap-2">
-                    <Battery className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">Battery</span>
-                  </div>
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950/20">
-                  <div className="flex items-center gap-2">
-                    <Wifi className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">Internet</span>
-                  </div>
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950/20">
-                  <div className="flex items-center gap-2">
-                    <Monitor className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">Display</span>
-                  </div>
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                </div>
-              </CardContent>
-            </Card>
+            {/* Real-time System Check */}
+            <SystemCheckCard />
 
             {/* Terms Agreement */}
             <Card className="border-2 border-primary">

@@ -326,16 +326,22 @@ function DashboardShellContent({
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton 
-                      onClick={() => setIsTestMenuOpen(!isTestMenuOpen)}
+                      asChild
                       isActive={pathname === '/test' || pathname?.startsWith('/test/')}
-                      className="cursor-pointer text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
+                      className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
                       tooltip="Test"
                     >
-                      <ClipboardList className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
-                      <span className="font-sans flex-1 min-w-0">Test</span>
-                      <ChevronRight 
-                        className={`ml-auto size-4 sm:size-4 md:size-5 transition-transform duration-200 shrink-0 group-data-[collapsible=icon]:hidden ${isTestMenuOpen ? 'rotate-90' : ''}`} 
-                      />
+                      <Link href="/test" onClick={(e) => {
+                        e.preventDefault()
+                        setIsTestMenuOpen(!isTestMenuOpen)
+                        router.push('/test')
+                      }}>
+                        <ClipboardList className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Test</span>
+                        <ChevronRight 
+                          className={`ml-auto size-4 sm:size-4 md:size-5 transition-transform duration-200 shrink-0 group-data-[collapsible=icon]:hidden ${isTestMenuOpen ? 'rotate-90' : ''}`} 
+                        />
+                      </Link>
                     </SidebarMenuButton>
                     {isTestMenuOpen && (
                       <SidebarMenuSub>

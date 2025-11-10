@@ -105,7 +105,7 @@ export default async function TestsPage() {
           </Card>
         ) : (
           <div className="grid gap-6">
-            {tests.map((test) => (
+            {tests.map((test: any) => (
               <Card key={test.id} className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

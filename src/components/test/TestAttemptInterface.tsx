@@ -32,6 +32,7 @@ import {
   Camera,
   Maximize,
   Volume2,
+  Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -93,6 +94,14 @@ export default function TestAttemptInterface({
   const [canAnswerQuestions, setCanAnswerQuestions] = useState(false)
   const [showFullscreenDialog, setShowFullscreenDialog] = useState(false)
 
+  // Auto-save state
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [unsavedChanges, setUnsavedChanges] = useState(false)
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastErrorToastRef = useRef<number>(0)
+
   const currentQuestion = questions[currentQuestionIndex]
 
   // Detect device type on mount
@@ -138,7 +147,7 @@ export default function TestAttemptInterface({
           .single()
 
         if (error) {
-          console.error('Error creating attempt:', error)
+          console.error('Error creating attempt:', error?.message || error?.code || 'Unknown error')
           toast.error('Failed to start test')
           return
         }
@@ -194,8 +203,10 @@ export default function TestAttemptInterface({
       }
     }
 
-    // Attempt fullscreen immediately
-    const timer = setTimeout(enterFullscreen, 500)
+    // Show fullscreen dialog immediately - user must click to enter fullscreen
+    setShowFullscreenDialog(true)
+    setCanAnswerQuestions(false)
+    const timer = setTimeout(() => {}, 0)
 
     const handleFullscreenChange = () => {
       // Only track violations if component is still mounted (user is on attempt page)
@@ -461,6 +472,210 @@ export default function TestAttemptInterface({
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Auto-save function with retry logic
+  const autoSaveAnswers = useCallback(async (force = false) => {
+    if (!attemptId || Object.keys(answers).length === 0) {
+      return
+    }
+
+    // Skip if already saving or no unsaved changes (unless forced)
+    if (isSaving || (!unsavedChanges && !force)) {
+      return
+    }
+
+    setIsSaving(true)
+    setSaveError(null)
+
+    try {
+      console.log('💾 Auto-saving', Object.keys(answers).length, 'answers...')
+
+      // Calculate correctness for each answer - only include answers with selected options
+      const formattedAnswers = Object.values(answers)
+        .filter((answer) => answer.selectedOption !== null && answer.selectedOption !== undefined)
+        .map((answer) => {
+          const question = questions.find((q) => q.id === answer.questionId)
+          const correctAnswer = question?.['correct answer'] || question?.correct_answer
+          const isCorrect = answer.selectedOption === correctAnswer
+
+          return {
+            attempt_id: attemptId,
+            question_id: answer.questionId,
+            user_answer: answer.selectedOption,
+            is_correct: isCorrect,
+            time_taken_seconds: answer.timeSpent || 0,
+            is_marked_for_review: answer.isMarkedForReview || false,
+            marks_obtained: isCorrect ? 1 : 0,
+          }
+        })
+
+      // Skip if no valid answers to save
+      if (formattedAnswers.length === 0) {
+        console.log('⏭️ No answers to save yet')
+        setIsSaving(false)
+        return
+      }
+
+      // Use upsert with the column names that form the unique constraint
+      // This will update existing records or insert new ones
+      const { data: insertData, error: insertError } = await supabase
+        .from('attempt_answers')
+        .upsert(formattedAnswers, {
+          onConflict: 'attempt_id,question_id', // Column names, not constraint name
+          ignoreDuplicates: false, // Update existing records
+        })
+
+      // Check if there's an actual error (not just an empty object)
+      const hasRealError = insertError && 
+        typeof insertError === 'object' && 
+        Object.keys(insertError).length > 0 &&
+        (insertError.message || insertError.details || insertError.hint || insertError.code)
+
+      if (hasRealError) {
+        // Build error message from available fields
+        const errorMsg = insertError.message || insertError.details || insertError.code || 'Database error'
+        
+        console.error('❌ Auto-save failed:', errorMsg)
+        if (insertError.code) {
+          console.error('   Error code:', insertError.code)
+        }
+        if (insertError.hint) {
+          console.error('   Hint:', insertError.hint)
+        }
+        
+        setSaveError(errorMsg)
+        
+        // Rate limit error toasts - only show once every 30 seconds
+        const now = Date.now()
+        if (now - lastErrorToastRef.current > 30000) {
+          toast.error('Failed to auto-save. Your answers are still stored locally.')
+          lastErrorToastRef.current = now
+        }
+        return
+      }
+
+      // Success
+      setLastSaved(new Date())
+      setUnsavedChanges(false)
+      setSaveError(null) // Clear any previous errors
+      console.log(`✅ Auto-saved ${formattedAnswers.length} answer(s) at ${new Date().toLocaleTimeString()}`)
+
+    } catch (error: any) {
+      console.error('❌ Auto-save exception:', error)
+      setSaveError(error?.message || 'Unknown error')
+      
+      // Rate limit error toasts - only show once every 30 seconds
+      const now = Date.now()
+      if (now - lastErrorToastRef.current > 30000) {
+        toast.error('Auto-save failed. Retrying...')
+        lastErrorToastRef.current = now
+      }
+    } finally {
+      setIsSaving(false)
+    }
+  }, [attemptId, answers, questions, isSaving, unsavedChanges, supabase])
+
+  // Load existing answers on mount (resume capability)
+  useEffect(() => {
+    const loadExistingAnswers = async () => {
+      if (!attemptId) return
+
+      try {
+        console.log('📥 Loading existing answers for attempt:', attemptId)
+
+        const { data: existingAnswers, error } = await supabase
+          .from('attempt_answers')
+          .select('*')
+          .eq('attempt_id', attemptId)
+
+        if (error) {
+          console.error('Error loading existing answers:', error?.message || error?.code || 'Unknown error')
+          return
+        }
+
+        if (existingAnswers && existingAnswers.length > 0) {
+          console.log('✅ Loaded', existingAnswers.length, 'existing answers')
+
+          // Convert to answers state format
+          const loadedAnswers: Record<string, Answer> = {}
+          existingAnswers.forEach((ans: any) => {
+            loadedAnswers[ans.question_id] = {
+              questionId: ans.question_id,
+              selectedOption: ans.user_answer,
+              isMarkedForReview: ans.is_marked_for_review || false,
+              timeSpent: ans.time_taken_seconds || 0,
+            }
+          })
+
+          setAnswers(loadedAnswers)
+          setLastSaved(new Date())
+          toast.success(`Resumed test with ${existingAnswers.length} saved answers`)
+        }
+      } catch (error: any) {
+        console.error('Exception loading answers:', error?.message || 'Unknown error')
+      }
+    }
+
+    loadExistingAnswers()
+  }, [attemptId, supabase])
+
+  // Auto-save every 5 seconds
+  useEffect(() => {
+    if (!attemptId) return
+
+    console.log('🔄 Setting up auto-save (every 5 seconds)')
+
+    const autoSaveInterval = setInterval(() => {
+      autoSaveAnswers()
+    }, 5000) // 5 seconds
+
+    return () => {
+      console.log('🛑 Clearing auto-save interval')
+      clearInterval(autoSaveInterval)
+    }
+  }, [attemptId, autoSaveAnswers])
+
+  // Save on answer change (debounced via timer)
+  useEffect(() => {
+    if (Object.keys(answers).length === 0) return
+
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+
+    // Set unsaved changes flag
+    setUnsavedChanges(true)
+
+    // Debounce: save 2 seconds after last change
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveAnswers()
+    }, 2000)
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [answers, autoSaveAnswers])
+
+  // Save before page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (unsavedChanges) {
+        // Attempt synchronous save
+        autoSaveAnswers(true)
+        
+        // Show warning
+        e.preventDefault()
+        e.returnValue = 'You have unsaved answers. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [unsavedChanges, autoSaveAnswers])
+
   const handleAnswerChange = useCallback((optionKey: string) => {
     // Prevent answering if not in fullscreen
     if (!canAnswerQuestions) {
@@ -560,7 +775,7 @@ export default function TestAttemptInterface({
     // Skip to next question without saving
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1)
-      toast.info('Question skipped')
+      // Removed toast notification
     }
   }, [currentQuestionIndex, questions.length])
   
@@ -572,17 +787,21 @@ export default function TestAttemptInterface({
         delete newAnswers[currentQuestion.id]
         return newAnswers
       })
-      toast.success('Answer cleared')
+      // Removed toast notification
     }
   }, [currentQuestion.id, answers])
   
   const handleSaveAndNext = useCallback(() => {
+    // Check if an option is selected
+    if (!answers[currentQuestion.id]?.selectedOption) {
+      toast.error('Please select an answer before proceeding')
+      return
+    }
+    
     // Save current answer (already saved in state) and move to next
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1)
-      if (answers[currentQuestion.id]?.selectedOption) {
-        toast.success('Answer saved')
-      }
+      // Removed toast notification - answers are auto-saved
     }
   }, [currentQuestionIndex, questions.length, answers, currentQuestion.id])
 
@@ -702,8 +921,8 @@ export default function TestAttemptInterface({
       
       toast.success('Test submitted successfully!')
       router.push(`/test/${test.id}/results`)
-    } catch (error) {
-      console.error('Error submitting test:', error)
+    } catch (error: any) {
+      console.error('Error submitting test:', error?.message || 'Unknown error')
       toast.error('Failed to submit test')
       setIsSubmitting(false)
     }
@@ -828,51 +1047,69 @@ export default function TestAttemptInterface({
 
           {/* Proctoring Indicators */}
           <div className="flex items-center gap-2">
+            {/* Auto-save Status Badge */}
             <Badge 
-              variant={cameraEnabled ? 'default' : 'destructive'}
-              className="cursor-pointer"
-              onClick={async () => {
-                if (!cameraEnabled) {
-                  try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                      video: { 
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        facingMode: 'user'
-                      } 
-                    })
-                    if (videoRef.current) {
-                      videoRef.current.srcObject = stream
-                      setCameraEnabled(true)
-                      setProctoringFlags((prev) => ({ ...prev, camera_enabled: true }))
-                      toast.success('Camera enabled')
-                    }
-                  } catch (err) {
-                    toast.error('Failed to enable camera. Please check permissions.')
-                  }
-                }
-              }}
+              variant={isSaving ? 'secondary' : unsavedChanges ? 'outline' : 'default'}
+              className={`${isSaving ? 'animate-pulse' : ''} ${saveError ? 'border-red-500' : ''}`}
+              title={
+                isSaving ? 'Saving...' :
+                saveError ? `Error: ${saveError}` :
+                lastSaved ? `Last saved: ${lastSaved.toLocaleTimeString()}` :
+                'Auto-save enabled'
+              }
             >
-              <Camera className="mr-1 h-3 w-3" />
-              Camera
+              {isSaving ? (
+                <>
+                  <Clock className="mr-1 h-3 w-3 animate-spin" />
+                  Saving...
+                </>
+              ) : saveError ? (
+                <>
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  Save Error
+                </>
+              ) : unsavedChanges ? (
+                <>
+                  <Circle className="mr-1 h-3 w-3 fill-current" />
+                  Unsaved
+                </>
+              ) : lastSaved ? (
+                <>
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                  Saved
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                  Auto-save
+                </>
+              )}
             </Badge>
+
             <Badge 
               variant={isFullscreen ? 'default' : 'destructive'}
               className="cursor-pointer"
               onClick={async () => {
-                if (!isFullscreen) {
-                  try {
+                try {
+                  if (!document.fullscreenElement) {
+                    // Enter fullscreen
                     await document.documentElement.requestFullscreen()
                     setIsFullscreen(true)
+                    setCanAnswerQuestions(true)
+                    setShowFullscreenDialog(false)
                     setProctoringFlags((prev) => ({ ...prev, fullscreen_active: true }))
                     toast.success('Fullscreen enabled')
-                  } catch (err) {
-                    toast.error('Failed to enable fullscreen. Please try manually pressing F11.')
+                  } else {
+                    // Exit fullscreen
+                    await document.exitFullscreen()
+                    setIsFullscreen(false)
+                    setCanAnswerQuestions(false)
+                    setProctoringFlags((prev) => ({ ...prev, fullscreen_active: false }))
+                    toast.info('Fullscreen disabled')
                   }
-                } else {
-                  if (document.fullscreenElement) {
-                    document.exitFullscreen()
-                  }
+                } catch (err) {
+                  console.error('Fullscreen error:', err)
+                  toast.error('Failed to toggle fullscreen. Please try pressing F11.')
                 }
               }}
             >
@@ -932,7 +1169,6 @@ export default function TestAttemptInterface({
                 value={answers[currentQuestion.id]?.selectedOption || ''}
                 onValueChange={handleAnswerChange}
                 className="space-y-2"
-                disabled={!canAnswerQuestions}
               >
                 {['option a', 'option b', 'option c', 'option d', 'option e'].map((optionKey) => {
                   const optionValue = currentQuestion[optionKey]
@@ -943,18 +1179,19 @@ export default function TestAttemptInterface({
                   return (
                     <div
                       key={optionKey}
-                      className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
-                        canAnswerQuestions ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
-                      } ${
+                      className={`flex items-center gap-3 rounded-lg border p-3 transition-all cursor-pointer ${
                         isSelected
                           ? 'border-primary bg-primary/10 shadow-sm'
                           : 'border-border/50 bg-card hover:border-primary/50 hover:bg-accent/50'
                       }`}
-                      onClick={() => canAnswerQuestions && handleAnswerChange(optionKey)}
+                      onClick={() => handleAnswerChange(optionKey)}
                       title={isSelected ? 'Click again to clear selection' : 'Click to select'}
                     >
                       <RadioGroupItem value={optionKey} id={optionKey} className="shrink-0" />
-                      <Label htmlFor={optionKey} className="flex-1 cursor-pointer text-base leading-snug">
+                      <Label htmlFor={optionKey} className="flex-1 cursor-pointer text-base leading-snug" onClick={(e) => {
+                        e.preventDefault()
+                        handleAnswerChange(optionKey)
+                      }}>
                         <span className="mr-2 font-bold text-base">
                           {optionKey.split(' ')[1].toUpperCase()}.
                         </span>
@@ -1019,6 +1256,7 @@ export default function TestAttemptInterface({
                     variant="default" 
                     size="default" 
                     className="text-sm sm:text-base px-4 sm:px-6"
+                    disabled={!answers[currentQuestion.id]?.selectedOption}
                   >
                     Save & Next
                     <ChevronRight className="ml-1 sm:ml-2 h-4 w-4" />

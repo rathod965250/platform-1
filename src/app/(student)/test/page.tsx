@@ -76,6 +76,25 @@ export default async function TestSelectionPage() {
   const mockTests = tests.filter(t => t.test_type === 'mock')
   const companyTests = tests.filter(t => t.test_type === 'company_specific')
 
+  // Fetch user's completed test attempts to check which tests are already taken
+  const { data: userCompletedAttempts } = await supabase
+    .from('test_attempts')
+    .select('test_id, id, score, total_questions, submitted_at')
+    .eq('user_id', user.id)
+    .not('submitted_at', 'is', null)
+
+  // Create a map of completed test IDs for quick lookup
+  const completedTestIds = new Set(userCompletedAttempts?.map(attempt => attempt.test_id) || [])
+  
+  // Create a map of test attempts for displaying results
+  const testAttemptsMap = new Map(
+    userCompletedAttempts?.map(attempt => [attempt.test_id, attempt]) || []
+  )
+
+  // Count completed tests by type
+  const completedMockTests = mockTests.filter(t => completedTestIds.has(t.id)).length
+  const completedCompanyTests = companyTests.filter(t => completedTestIds.has(t.id)).length
+
   // Fetch user profile for DashboardShell
   const { data: profile } = await supabase
     .from('profiles')
@@ -295,9 +314,9 @@ export default async function TestSelectionPage() {
                 Mixed topics from all categories
               </p>
               <Badge variant="secondary" className="mb-4">
-                {mockTests.length} {mockTests.length === 1 ? 'test' : 'tests'} available
+                {completedMockTests} / {mockTests.length} {mockTests.length === 1 ? 'test' : 'tests'} taken
               </Badge>
-              <Link href="#mock-tests" className="w-full">
+              <Link href="/test/mock" className="w-full">
                 <Button className="w-full">Select</Button>
               </Link>
             </div>
@@ -316,9 +335,9 @@ export default async function TestSelectionPage() {
                 Previous year company questions
               </p>
               <Badge variant="secondary" className="mb-4">
-                {companyTests.length} {companyTests.length === 1 ? 'test' : 'tests'} available
+                {completedCompanyTests} / {companyTests.length} {companyTests.length === 1 ? 'test' : 'tests'} taken
               </Badge>
-              <Link href="#company-tests" className="w-full">
+              <Link href="/test/company-specific" className="w-full">
                 <Button className="w-full">Select</Button>
               </Link>
             </div>
@@ -377,11 +396,19 @@ export default async function TestSelectionPage() {
                         )}
                       </div>
                     </div>
-                    <Link href={`/test/${test.id}/instructions`}>
-                      <Button>
-                        Start Test
-                      </Button>
-                    </Link>
+                    {completedTestIds.has(test.id) ? (
+                      <Link href={`/results/${testAttemptsMap.get(test.id)?.id}`}>
+                        <Button variant="outline">
+                          View Results
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link href={`/test/${test.id}/instructions`}>
+                        <Button>
+                          Start Test
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -425,11 +452,19 @@ export default async function TestSelectionPage() {
                         )}
                       </div>
                     </div>
-                    <Link href={`/test/${test.id}/instructions`}>
-                      <Button>
-                        Start Test
-                      </Button>
-                    </Link>
+                    {completedTestIds.has(test.id) ? (
+                      <Link href={`/results/${testAttemptsMap.get(test.id)?.id}`}>
+                        <Button variant="outline">
+                          View Results
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link href={`/test/${test.id}/instructions`}>
+                        <Button>
+                          Start Test
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </Card>
               ))}

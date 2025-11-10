@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { saveDeviceInfo } from '@/lib/services/device-tracking'
 
 interface StartTestButtonProps {
   testId: string
@@ -61,6 +62,9 @@ export function StartTestButton({ testId }: StartTestButtonProps) {
         .single()
 
       if (attemptError || !attempt) throw new Error('Failed to create test attempt')
+
+      // Track device and browser information
+      await saveDeviceInfo(user.id, testId, attempt.id)
 
       // Navigate to active test
       router.push(`/test/${testId}/active/${attempt.id}`)

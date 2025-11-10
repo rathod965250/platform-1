@@ -20,18 +20,23 @@ export default async function TestResultsPage({
   }
 
   // Fetch test details
-  const { data: test } = await supabase
+  const { data: test, error: testError } = await supabase
     .from('tests')
     .select('*')
     .eq('id', testId)
     .single()
 
+  if (testError) {
+    console.error('Error fetching test:', testError?.message || testError?.code || 'Unknown error')
+  }
+
   if (!test) {
+    console.log('Test not found, redirecting to mock test page')
     redirect('/test/mock')
   }
 
   // Fetch user's latest attempt
-  const { data: attempt } = await supabase
+  const { data: attempt, error: attemptError } = await supabase
     .from('test_attempts')
     .select('*')
     .eq('test_id', testId)
@@ -41,22 +46,34 @@ export default async function TestResultsPage({
     .limit(1)
     .single()
 
+  if (attemptError) {
+    console.error('Error fetching attempt:', attemptError?.message || attemptError?.code || 'Unknown error')
+  }
+
   if (!attempt) {
-    console.log('No completed attempt found, redirecting to instructions')
+    console.log('No completed attempt found for test:', testId, 'user:', user.id)
     redirect(`/test/${testId}/instructions`)
   }
 
+  console.log('Attempt found:', {
+    id: attempt.id,
+    score: attempt.score,
+    correct_answers: attempt.correct_answers,
+    total_questions: attempt.total_questions,
+    submitted_at: attempt.submitted_at
+  })
+
   // Fetch answers with questions
-  const { data: answers } = await supabase
+  const { data: answers, error: answersError } = await supabase
     .from('attempt_answers')
     .select(`
       *,
-      question:questions(
+      questions!question_id(
         *,
-        subcategory:subcategories!questions_subcategory_id_fkey(
+        subcategories!questions_subcategory_id_fkey(
           id,
           name,
-          category:categories(
+          categories!subcategories_category_id_fkey(
             id,
             name
           )
@@ -64,6 +81,12 @@ export default async function TestResultsPage({
       )
     `)
     .eq('attempt_id', attempt.id)
+
+  if (answersError) {
+    console.error('Error fetching answers:', answersError?.message || answersError?.code || 'Unknown error')
+  }
+
+  console.log('Answers fetched:', answers?.length || 0, 'answers')
 
   // Fetch statistics for comparison
   const { data: allAttempts } = await supabase

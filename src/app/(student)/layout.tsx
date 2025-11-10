@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { SidebarProvider } from '@/contexts/SidebarContext'
 import { StudentLayoutContent } from '@/components/dashboard/StudentLayoutContent'
 
 export default async function StudentLayout({
@@ -31,11 +30,9 @@ export default async function StudentLayout({
   }
 
   return (
-    <SidebarProvider>
-      <StudentLayoutContent>
-        {children}
-      </StudentLayoutContent>
-    </SidebarProvider>
+    <StudentLayoutContent>
+      {children}
+    </StudentLayoutContent>
   )
 }
 

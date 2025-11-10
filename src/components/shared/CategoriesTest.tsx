@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calculator, Brain, BookOpen, BarChart3, Lightbulb } from 'lucide-react'
+import { logError } from '@/lib/utils/error-logger'
 
 interface Category {
   id: string
@@ -43,7 +44,7 @@ export function CategoriesTest() {
         }
       } catch (err) {
         setError('Failed to fetch categories')
-        console.error(err)
+        logError('CategoriesTest', err)
       } finally {
         setLoading(false)
       }
