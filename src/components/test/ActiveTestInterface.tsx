@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,9 +17,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Flag, X, Maximize, Minimize } from 'lucide-react'
 import { QuestionDisplay } from './QuestionDisplay'
+import { Clock, Flag, CheckCircle2, Circle, AlertTriangle, Eye, EyeOff, ChevronLeft, ChevronRight, Send, Camera, Maximize, Minimize, Volume2, Zap } from 'lucide-react'
+import { optionKeyToLetter } from '@/lib/optionUtils'
 
 interface ActiveTestInterfaceProps {
   test: any
@@ -253,20 +254,56 @@ export function ActiveTestInterface({
           markedCount++
         }
 
-        const isCorrect = answer.user_answer === question.correct_answer
+        // Enhanced comparison: handle format mismatches between selected option and correct answer
+        let isCorrect = false
+        
+        if (answer.user_answer && question.correct_answer) {
+          // Map correct answer to uppercase letter
+          let correctLetter = ''
+          
+          // If correctAnswer is already a letter (A, B, C, D, E), use it directly
+          if (['A', 'B', 'C', 'D', 'E'].includes(question.correct_answer.toUpperCase())) {
+            correctLetter = question.correct_answer.toUpperCase()
+          } else {
+            // Find which option letter corresponds to the correct answer text
+            const options = {
+              'A': question['option a'] || question['option_a'],
+              'B': question['option b'] || question['option_b'],
+              'C': question['option c'] || question['option_c'],
+              'D': question['option d'] || question['option_d'],
+              'E': question['option e'] || question['option_e'],
+            }
+            
+            for (const [letter, value] of Object.entries(options)) {
+              if (value && value.toString().toLowerCase().trim() === question.correct_answer.toLowerCase().trim()) {
+                correctLetter = letter
+                break
+              }
+            }
+            
+            // Fallback: if no match found, use the correctAnswer as-is
+            if (!correctLetter) {
+              correctLetter = question.correct_answer
+            }
+          }
+          
+          // Compare the selected letter with the correct letter
+          isCorrect = answer.user_answer === correctLetter
+        } else {
+          isCorrect = answer.user_answer === question.correct_answer
+        }
         if (isCorrect) {
           correctAnswers++
           score += question.marks
-        } else if (test.negative_marking) {
-          score -= question.marks * 0.25
         }
+        // No negative marking - wrong answers get 0 marks
 
         // Update answer with correct flag
         await supabase
           .from('attempt_answers')
           .update({
             is_correct: isCorrect,
-            marks_obtained: isCorrect ? question.marks : (test.negative_marking ? -question.marks * 0.25 : 0),
+            marks_obtained: isCorrect ? question.marks : 0,
           })
           .eq('attempt_id', attempt.id)
           .eq('question_id', question.id)

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { optionKeyToLetter } from '@/lib/optionUtils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -34,7 +36,6 @@ import {
   Volume2,
   Zap,
 } from 'lucide-react'
-import { toast } from 'sonner'
 
 interface TestAttemptInterfaceProps {
   test: any
@@ -102,7 +103,50 @@ export default function TestAttemptInterface({
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastErrorToastRef = useRef<number>(0)
 
+  // Time tracking state
+  const [questionStartTime, setQuestionStartTime] = useState<Date>(new Date())
+  const questionTimeTracker = useRef<Record<string, number>>({}) // Track cumulative time per question
+
   const currentQuestion = questions[currentQuestionIndex]
+
+  // Function to update time spent on current question
+  const updateQuestionTime = useCallback(() => {
+    if (!currentQuestion) return
+    
+    const now = new Date()
+    const timeSpentOnCurrentQuestion = Math.floor((now.getTime() - questionStartTime.getTime()) / 1000)
+    
+    // Add to cumulative time for this question
+    const previousTime = questionTimeTracker.current[currentQuestion.id] || 0
+    questionTimeTracker.current[currentQuestion.id] = previousTime + timeSpentOnCurrentQuestion
+    
+    // Update the answers state with the new time
+    setAnswers(prev => ({
+      ...prev,
+      [currentQuestion.id]: {
+        ...prev[currentQuestion.id],
+        questionId: currentQuestion.id,
+        selectedOption: prev[currentQuestion.id]?.selectedOption || null,
+        isMarkedForReview: prev[currentQuestion.id]?.isMarkedForReview || false,
+        timeSpent: questionTimeTracker.current[currentQuestion.id],
+      },
+    }))
+  }, [currentQuestion, questionStartTime])
+
+  // Effect to track time spent on current question
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateQuestionTime()
+      setQuestionStartTime(new Date()) // Reset start time for next interval
+    }, 1000) // Update every second
+
+    return () => clearInterval(interval)
+  }, [updateQuestionTime])
+
+  // Effect to handle question changes - update time for previous question and reset timer
+  useEffect(() => {
+    setQuestionStartTime(new Date()) // Reset timer when question changes
+  }, [currentQuestionIndex])
 
   // Detect device type on mount
   useEffect(() => {
@@ -489,28 +533,79 @@ export default function TestAttemptInterface({
     try {
       console.log('💾 Auto-saving', Object.keys(answers).length, 'answers...')
 
-      // Calculate correctness for each answer - only include answers with selected options
+      // Include ALL answers regardless of selection state to ensure everything is saved
       const formattedAnswers = Object.values(answers)
-        .filter((answer) => answer.selectedOption !== null && answer.selectedOption !== undefined)
         .map((answer) => {
           const question = questions.find((q) => q.id === answer.questionId)
           const correctAnswer = question?.['correct answer'] || question?.correct_answer
-          const isCorrect = answer.selectedOption === correctAnswer
+          
+          // Handle null/undefined/empty string as null for database
+          const actualAnswer = answer.selectedOption === '' ? null : answer.selectedOption
+          
+          // Enhanced comparison: handle format mismatches between selected option and correct answer
+          let isCorrect = false
+          
+          if (actualAnswer && correctAnswer) {
+            // Get the actual question to access option details
+            const question = questions.find((q) => q.id === answer.questionId)
+            if (!question) return { ...answer, isCorrect: false }
+            
+            // Map correct answer to uppercase letter
+            let correctLetter = ''
+            
+            // If correctAnswer is already a letter (A, B, C, D, E), use it directly
+            if (['A', 'B', 'C', 'D', 'E'].includes(correctAnswer.toUpperCase())) {
+              correctLetter = correctAnswer.toUpperCase()
+            } else {
+              // Find which option letter corresponds to the correct answer text
+              const options = {
+                'A': question['option a'] || question['option_a'],
+                'B': question['option b'] || question['option_b'],
+                'C': question['option c'] || question['option_c'],
+                'D': question['option d'] || question['option_d'],
+                'E': question['option e'] || question['option_e'],
+              }
+              
+              for (const [letter, value] of Object.entries(options)) {
+                if (value && value.toString().toLowerCase().trim() === correctAnswer.toLowerCase().trim()) {
+                  correctLetter = letter
+                  break
+                }
+              }
+              
+              // Fallback: if no match found, use the correctAnswer as-is
+              if (!correctLetter) {
+                correctLetter = correctAnswer
+              }
+            }
+            
+            // Compare the selected letter with the correct letter
+            isCorrect = actualAnswer === correctLetter
+            
+          }
+
+          // Calculate marks obtained based on correctness (no negative marking)
+          let marksObtained = 0
+          if (actualAnswer && isCorrect) {
+            marksObtained = question?.marks || 1 // Use question marks or default to 1
+          }
+          // Wrong answers or no answers get 0 marks
 
           return {
             attempt_id: attemptId,
             question_id: answer.questionId,
-            user_answer: answer.selectedOption,
+            user_answer: actualAnswer,
             is_correct: isCorrect,
             time_taken_seconds: answer.timeSpent || 0,
             is_marked_for_review: answer.isMarkedForReview || false,
-            marks_obtained: isCorrect ? 1 : 0,
+            marks_obtained: marksObtained,
           }
         })
 
-      // Skip if no valid answers to save
+      // Always save, even if no answers have been selected
       if (formattedAnswers.length === 0) {
-        console.log('⏭️ No answers to save yet')
+        console.log('⏭️ No answers to save, clearing unsaved flag')
+        setUnsavedChanges(false)
         setIsSaving(false)
         return
       }
@@ -598,12 +693,15 @@ export default function TestAttemptInterface({
           // Convert to answers state format
           const loadedAnswers: Record<string, Answer> = {}
           existingAnswers.forEach((ans: any) => {
+            const timeSpent = ans.time_taken_seconds || 0
             loadedAnswers[ans.question_id] = {
               questionId: ans.question_id,
               selectedOption: ans.user_answer,
               isMarkedForReview: ans.is_marked_for_review || false,
-              timeSpent: ans.time_taken_seconds || 0,
+              timeSpent: timeSpent,
             }
+            // Initialize the time tracker with existing time data
+            questionTimeTracker.current[ans.question_id] = timeSpent
           })
 
           setAnswers(loadedAnswers)
@@ -643,7 +741,7 @@ export default function TestAttemptInterface({
       clearTimeout(autoSaveTimerRef.current)
     }
 
-    // Set unsaved changes flag
+    // Set unsaved changes flag - this will trigger auto-save
     setUnsavedChanges(true)
 
     // Debounce: save 2 seconds after last change
@@ -683,9 +781,12 @@ export default function TestAttemptInterface({
       return
     }
     
+    // Convert option key to uppercase letter (e.g., "option b" -> "B")
+    const letter = optionKeyToLetter(optionKey)
+    
     // Double-click to clear: if clicking the same option, clear it
     const currentAnswer = answers[currentQuestion.id]?.selectedOption
-    const newOption = currentAnswer === optionKey ? null : optionKey
+    const newOption = currentAnswer === letter ? null : letter
     
     setAnswers((prev) => ({
       ...prev,
@@ -693,9 +794,12 @@ export default function TestAttemptInterface({
         questionId: currentQuestion.id,
         selectedOption: newOption,
         isMarkedForReview: prev[currentQuestion.id]?.isMarkedForReview || false,
-        timeSpent: prev[currentQuestion.id]?.timeSpent || 0,
+        timeSpent: questionTimeTracker.current[currentQuestion.id] || 0,
       },
     }))
+    
+    // Force immediate unsaved flag since this is a direct user interaction
+    setUnsavedChanges(true)
   }, [canAnswerQuestions, currentQuestion.id, answers])
 
   const toggleMarkForReview = useCallback(() => {
@@ -711,14 +815,18 @@ export default function TestAttemptInterface({
         questionId: currentQuestion.id,
         selectedOption: prev[currentQuestion.id]?.selectedOption || null,
         isMarkedForReview: !prev[currentQuestion.id]?.isMarkedForReview,
-        timeSpent: prev[currentQuestion.id]?.timeSpent || 0,
+        timeSpent: questionTimeTracker.current[currentQuestion.id] || 0,
       },
     }))
+    
+    // Force immediate unsaved flag since this is a direct user interaction
+    setUnsavedChanges(true)
   }, [canAnswerQuestions, currentQuestion.id])
 
   const navigateToQuestion = useCallback((index: number) => {
+    updateQuestionTime() // Update time for current question before navigating
     setCurrentQuestionIndex(index)
-  }, [])
+  }, [updateQuestionTime])
   
   // Auto-scroll to current question in the grid - triggers at 3rd/4th row
   useEffect(() => {
@@ -761,23 +869,26 @@ export default function TestAttemptInterface({
 
   const handlePrevious = useCallback(() => {
     if (currentQuestionIndex > 0) {
+      updateQuestionTime() // Update time for current question before navigating
       setCurrentQuestionIndex(currentQuestionIndex - 1)
     }
-  }, [currentQuestionIndex])
+  }, [currentQuestionIndex, updateQuestionTime])
 
   const handleNext = useCallback(() => {
     if (currentQuestionIndex < questions.length - 1) {
+      updateQuestionTime() // Update time for current question before navigating
       setCurrentQuestionIndex(currentQuestionIndex + 1)
     }
-  }, [currentQuestionIndex, questions.length])
+  }, [currentQuestionIndex, questions.length, updateQuestionTime])
   
   const handleSkip = useCallback(() => {
     // Skip to next question without saving
     if (currentQuestionIndex < questions.length - 1) {
+      updateQuestionTime() // Update time for current question before navigating
       setCurrentQuestionIndex(currentQuestionIndex + 1)
       // Removed toast notification
     }
-  }, [currentQuestionIndex, questions.length])
+  }, [currentQuestionIndex, questions.length, updateQuestionTime])
   
   const handleClearAnswer = useCallback(() => {
     // Clear the current answer
@@ -787,7 +898,8 @@ export default function TestAttemptInterface({
         delete newAnswers[currentQuestion.id]
         return newAnswers
       })
-      // Removed toast notification
+      // Force immediate unsaved flag since this is a direct user interaction
+      setUnsavedChanges(true)
     }
   }, [currentQuestion.id, answers])
   
@@ -800,10 +912,11 @@ export default function TestAttemptInterface({
     
     // Save current answer (already saved in state) and move to next
     if (currentQuestionIndex < questions.length - 1) {
+      updateQuestionTime() // Update time for current question before navigating
       setCurrentQuestionIndex(currentQuestionIndex + 1)
       // Removed toast notification - answers are auto-saved
     }
-  }, [currentQuestionIndex, questions.length, answers, currentQuestion.id])
+  }, [currentQuestionIndex, questions.length, answers, currentQuestion.id, updateQuestionTime])
 
   const handleSubmitTest = async (autoSubmit = false) => {
     if (!autoSubmit && !showSubmitDialog) {
@@ -823,13 +936,64 @@ export default function TestAttemptInterface({
     }
 
     try {
+      // Update time for current question before submitting
+      updateQuestionTime()
+      
       // Calculate score
       let correctAnswers = 0
       const answerRecords = Object.values(answers).map((answer) => {
         const question = questions.find((q) => q.id === answer.questionId)
         const correctAnswer = question?.['correct answer'] || question?.correct_answer
-        const isCorrect = answer.selectedOption === correctAnswer
+        
+        // Enhanced comparison: handle format mismatches between selected option and correct answer
+        let isCorrect = false
+        
+        if (answer.selectedOption && correctAnswer) {
+          // Get the actual question to access option details
+          const question = questions.find((q) => q.id === answer.questionId)
+          if (!question) return { ...answer, isCorrect: false }
+          
+          // Get all option keys and values
+          const options = {
+            'option a': question['option a'] || question['option_a'],
+            'option b': question['option b'] || question['option_b'],
+            'option c': question['option c'] || question['option_c'],
+            'option d': question['option d'] || question['option_d'],
+            'option e': question['option e'] || question['option_e'],
+          }
+          
+          // Find the correct option key based on the correct answer text
+          let correctOptionKey = ''
+          for (const [key, value] of Object.entries(options)) {
+            if (value && value.toString().toLowerCase().trim() === correctAnswer.toLowerCase().trim()) {
+              correctOptionKey = key
+              break
+            }
+          }
+          
+          // If correctOptionKey is empty, use the stored correctAnswer as-is
+          if (!correctOptionKey) {
+            correctOptionKey = correctAnswer
+          }
+          
+          // Compare the selected option key with the correct option key
+          isCorrect = answer.selectedOption === correctOptionKey
+          
+          // Additional fallback: direct text comparison
+          if (!isCorrect) {
+            const selectedOptionText = options[answer.selectedOption as keyof typeof options] || answer.selectedOption
+            isCorrect = selectedOptionText?.toString().toLowerCase().trim() === correctAnswer.toLowerCase().trim()
+          }
+        }
+        
         if (isCorrect) correctAnswers++
+
+        // Calculate marks obtained based on correctness (no negative marking)
+        let marksObtained = 0
+        if (answer.selectedOption && isCorrect) {
+          marksObtained = question?.marks || 1 // Use question marks or default to 1
+        }
+        // Wrong answers or no answers get 0 marks
 
         return {
           test_attempt_id: attemptId,
@@ -838,10 +1002,12 @@ export default function TestAttemptInterface({
           is_correct: isCorrect,
           time_spent: answer.timeSpent,
           is_marked_for_review: answer.isMarkedForReview,
+          marks_obtained: marksObtained,
         }
       })
 
-      const score = correctAnswers
+      // Calculate total score from marks obtained
+      const score = answerRecords.reduce((total, record) => total + (record.marks_obtained || 0), 0)
       const percentage = (correctAnswers / questions.length) * 100
       const timeTaken = test.duration_minutes * 60 - timeRemaining
 
@@ -888,7 +1054,7 @@ export default function TestAttemptInterface({
           is_correct: record.is_correct,
           time_taken_seconds: record.time_spent || 0,
           is_marked_for_review: record.is_marked_for_review || false,
-          marks_obtained: record.is_correct ? 1 : 0,
+          marks_obtained: record.marks_obtained,
         }))
         await supabase.from('attempt_answers').insert(formattedAnswers)
       }
