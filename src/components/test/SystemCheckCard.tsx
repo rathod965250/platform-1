@@ -113,21 +113,21 @@ export function SystemCheckCard() {
 
       // Measure connection speed
       const startTime = performance.now()
-      const imageSize = 500000 // 500KB test image
       const cacheBuster = '?t=' + new Date().getTime()
       
       try {
-        // Use a small image from a CDN for speed test
-        const response = await fetch(`https://via.placeholder.com/500${cacheBuster}`, {
+        // Use a stable CDN image for speed test; compute size from response
+        const response = await fetch(`https://placehold.co/1000x1000/png${cacheBuster}`, {
           cache: 'no-cache'
         })
         
         if (!response.ok) throw new Error('Network response failed')
         
-        await response.blob()
+        const blob = await response.blob()
         const endTime = performance.now()
         const duration = (endTime - startTime) / 1000 // Convert to seconds
-        const speedMbps = ((imageSize * 8) / (duration * 1000000)).toFixed(2) // Convert to Mbps
+        const bytes = blob.size
+        const speedMbps = ((bytes * 8) / (duration * 1000000)).toFixed(2) // Convert to Mbps based on actual size
         
         setInternetSpeed(parseFloat(speedMbps))
         

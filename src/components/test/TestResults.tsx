@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -82,13 +82,10 @@ function useAIInsights(performanceData: any) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const supabase = createClient(
-    'https://rscxnpoffeedqfgynnct.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzY3hucG9mZmVlZHFmZ3lubmN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4NTIzNDEsImV4cCI6MjA3NzQyODM0MX0.uhwKiVHLz-4zE_JnDgyAxPnL361nSXCFzZnIwH39UCE'
-  )
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
-    if (!performanceData || performanceData.topics?.length === 0) return
+    if (!performanceData) return
 
     const generateInsights = async () => {
       setLoading(true)
@@ -101,26 +98,31 @@ function useAIInsights(performanceData: any) {
           body: { performanceData }
         })
 
-        console.log('📡 Edge function response:', { data, error })
-
-        if (error) {
-          console.error('❌ Edge function error:', error)
-          // Don't throw immediately, check if we got data anyway
-          if (!data || !data.insights) {
-            throw error
+        if (!data || error) {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+          const match = supabaseUrl.match(/^https:\/\/([^.]*)\.supabase\.co/)
+          const ref = match ? match[1] : ''
+          const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+          const resp = await fetch(`https://${ref}.functions.supabase.co/ai-insights`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${anon}`,
+            },
+            body: JSON.stringify({ performanceData }),
+          })
+          if (!resp.ok) throw new Error('Edge function HTTP error')
+          const json = await resp.json()
+          if (json && json.insights) {
+            setInsights(json.insights)
+            if (json.fallback) setError('Using fallback insights')
+          } else {
+            throw new Error('No insights returned from AI service')
           }
-        }
-        
-        if (data && data.insights) {
-          console.log('✅ AI insights received:', data.insights)
+        } else if (data && data.insights) {
           setInsights(data.insights)
-          
-          // Set error state if this was a fallback response
-          if (data.fallback) {
-            setError('Using fallback insights')
-          }
+          if (data.fallback) setError('Using fallback insights')
         } else {
-          console.error('❌ No insights in response:', data)
           throw new Error('No insights returned from AI service')
         }
         
@@ -163,12 +165,17 @@ function generateFallbackInsights(data: any): AIInsight {
 
   return {
     strengths: [
-      bestTopic ? `Strong performance in ${bestTopic.name} (${bestTopic.accuracy.toFixed(1)}%)` : "Completed the test successfully",
-      data.overallAccuracy > 70 ? "Good conceptual understanding" : "Consistent effort across topics"
+      bestTopic && bestTopic.accuracy > 60
+        ? `Strong performance in ${bestTopic.name} (${bestTopic.accuracy.toFixed(1)}%)`
+        : data.overallAccuracy > 70
+        ? 'Good conceptual understanding'
+        : 'Consistent effort across topics',
     ],
     weaknesses: [
-      worstTopic ? `Need improvement in ${worstTopic.name} (${worstTopic.accuracy.toFixed(1)}%)` : "Focus on building foundational concepts",
-      "Time management could be optimized"
+      worstTopic && worstTopic.accuracy < 60
+        ? `Need improvement in ${worstTopic.name} (${worstTopic.accuracy.toFixed(1)}%)`
+        : 'Focus on building foundational concepts',
+      'Time management could be optimized',
     ],
     recommendations: [
       worstTopic ? `Practice more ${worstTopic.name} questions` : "Review basic concepts thoroughly",
@@ -1388,18 +1395,35 @@ export function TestResults({
                     />
                   </div>
                 ) : (
-                  // No topic data available
-                  <div className="text-center py-12">
-                    <div className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
-                      <Target className="h-8 w-8 text-muted-foreground" />
+                  <div className="space-y-6">
+                    <div className="text-center py-12">
+                      <div className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
+                        <Target className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No Topic Data Available</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Topic-wise analysis requires categorized questions. This test may not have topic classifications.
+                      </p>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        Try Categorized Tests
+                      </Badge>
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">No Topic Data Available</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Topic-wise analysis requires categorized questions. This test may not have topic classifications.
-                    </p>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                      Try Categorized Tests
-                    </Badge>
+                    <AIInsightsCard 
+                      performanceData={{
+                        topics: difficultyChartData.map((d) => ({
+                          name: d.difficulty,
+                          accuracy: typeof d.accuracy === 'string' ? parseFloat(String(d.accuracy)) : Number(d.accuracy),
+                          timeSpent: Math.round(attempt.time_taken_seconds / Math.max(1, totalQuestions)),
+                          questionsAttempted: Math.max(1, totalQuestions / 3),
+                          questionsCorrect: Math.round((Number(d.accuracy) / 100) * Math.max(1, totalQuestions / 3))
+                        })),
+                        overallAccuracy: accuracy,
+                        totalTime: attempt.time_taken_seconds,
+                        testDuration: test.duration_minutes * 60,
+                        testTitle: test.title,
+                        studentLevel: scorePercentage >= 80 ? 'advanced' : scorePercentage >= 60 ? 'intermediate' : 'beginner'
+                      }}
+                    />
                   </div>
                 )}
               </CardContent>

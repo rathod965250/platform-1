@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -307,7 +308,7 @@ function TestimonialsColumn(props: {
             >
               <div className="text-foreground text-sm sm:text-base md:text-sm lg:text-base leading-relaxed">{testimonial.text}</div>
               <div className="flex items-center gap-2 sm:gap-3 mt-4 sm:mt-5">
-                <img
+                <Image
                   width={40}
                   height={40}
                   src={testimonial.image}
@@ -799,9 +800,11 @@ export function TestimonialManager() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <img
+                  <Image
                     src={testimonial.image_url}
                     alt={testimonial.name}
+                    width={40}
+                    height={40}
                     className="w-10 h-10 rounded-full object-cover"
                   />
                   <div>

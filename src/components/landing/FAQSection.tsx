@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { MessageCircle } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const faqs = [
   {
@@ -130,15 +131,18 @@ export function FAQSection() {
                 {/* Team Avatars */}
                 <div className="flex -space-x-3">
                   {teamAvatars.map((avatar, index) => (
-                    <Avatar
+                    <div
                       key={index}
-                      className="h-10 w-10 border-2 border-background ring-2 ring-muted"
+                      className="h-10 w-10 rounded-full overflow-hidden border-2 border-background ring-2 ring-muted"
                     >
-                      <AvatarImage src={avatar.src} alt={avatar.alt} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                        {avatar.name}
-                      </AvatarFallback>
-                    </Avatar>
+                      <Image
+                        src={avatar.src}
+                        alt={avatar.alt}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10 object-cover"
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
