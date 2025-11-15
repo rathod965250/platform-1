@@ -31,6 +31,7 @@ import { useCourses } from '@/hooks/use-courses'
 
 interface OnboardingData {
   full_name: string
+  gender: string
   college_id: string | null
   college_name: string // For custom college entry
   graduation_year_id: string | null
@@ -50,6 +51,7 @@ export function OnboardingForm() {
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<OnboardingData>({
     full_name: '',
+    gender: '',
     college_id: null,
     college_name: '',
     graduation_year_id: null,
@@ -244,9 +246,10 @@ export function OnboardingForm() {
         return
       }
 
-      // Update profile with full_name, college, graduation_year, companies, course, and phone
+      // Update profile with full_name, gender, college, graduation_year, companies, course, and phone
       const profileUpdate: {
         full_name: string
+        gender: string
         college: string
         graduation_year: number
         target_companies: string[]
@@ -256,6 +259,7 @@ export function OnboardingForm() {
         updated_at: string
       } = {
         full_name: currentFormData.full_name.trim(),
+        gender: currentFormData.gender,
         college: collegeName,
         graduation_year: currentFormData.graduation_year,
         target_companies: companyNames,
@@ -429,6 +433,10 @@ export function OnboardingForm() {
     if (step === 1) {
       if (!currentFormData.full_name || !currentFormData.full_name.trim()) {
         toast.error('Please enter your full name')
+        return
+      }
+      if (!currentFormData.gender || !currentFormData.gender.trim()) {
+        toast.error('Please select your gender')
         return
       }
       if (!currentFormData.college_name.trim()) {
@@ -648,6 +656,25 @@ export function OnboardingForm() {
               {loadingProfile && (
                 <p className="text-xs text-muted-foreground">Loading your name...</p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="gender">Gender <span className="text-destructive">*</span></Label>
+              <Select
+                value={formData.gender || undefined}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -902,7 +929,7 @@ export function OnboardingForm() {
                           className="mt-1"
                         />
                         <div className="flex-1">
-                          <h3 className="font-semibold text-foreground mb-1">{category.name}</h3>
+                          <h3 className="text-base font-semibold text-foreground mb-1">{category.name}</h3>
                           <p className="text-sm text-muted-foreground">{category.description || ''}</p>
                         </div>
                       </div>
@@ -972,6 +999,12 @@ export function OnboardingForm() {
                 <span className="text-sm font-medium text-muted-foreground">Full Name:</span>
                 <p className="text-foreground">
                   {formData.full_name || 'Not provided'}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-muted-foreground">Gender:</span>
+                <p className="text-foreground capitalize">
+                  {formData.gender === 'prefer_not_to_say' ? 'Prefer not to say' : formData.gender || 'Not selected'}
                 </p>
               </div>
               <div>

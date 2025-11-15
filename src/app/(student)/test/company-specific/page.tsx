@@ -10,7 +10,7 @@ import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Company Specific Tests | Aptitude Preparation Platform',
-  description: 'Practice with previous year company-specific aptitude test questions from TCS, Infosys, Wipro, Accenture, and Cognizant.',
+  description: 'Practice with company-specific aptitude tests tailored for your target organizations. Tests designed to match exact patterns and difficulty levels used by top companies.',
 }
 
 export default async function CompanySpecificTestsPage() {
@@ -168,15 +168,21 @@ export default async function CompanySpecificTestsPage() {
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
   allUserMetrics?.forEach((metric) => {
-    const category = metric.question?.subcategory?.category
-    if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category) {
-      const categoryName = String(category.name)
-      const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }
-      current.total += 1
-      if (metric.is_correct) {
-        current.correct += 1
+    const subcategories = metric.question?.subcategory
+    if (subcategories && Array.isArray(subcategories) && subcategories.length > 0) {
+      const category = subcategories[0]?.category
+      if (category && Array.isArray(category) && category.length > 0) {
+        const categoryData = category[0]
+        if (categoryData && typeof categoryData === 'object' && 'id' in categoryData && 'name' in categoryData) {
+          const categoryName = String(categoryData.name)
+          const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }
+          current.total += 1
+          if (metric.is_correct) {
+            current.correct += 1
+          }
+          categoryPerformanceMap.set(categoryName, current)
+        }
       }
-      categoryPerformanceMap.set(categoryName, current)
     }
   })
 
@@ -225,7 +231,7 @@ export default async function CompanySpecificTestsPage() {
               Company Specific Tests
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Previous year company questions
+              Practice with company-specific aptitude tests tailored for your target organizations. These tests are designed to match the exact patterns and difficulty levels used by top companies.
             </p>
           </div>
 
