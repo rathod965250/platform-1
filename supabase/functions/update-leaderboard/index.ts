@@ -212,6 +212,18 @@ serve(async (req: Request) => {
 // Helper function to update user_analytics
 async function updateUserAnalytics(supabaseClient: any, userId: string, testId: string, attempt: any) {
   try {
+    // Resolve user's timezone (defaults to UTC)
+    let tz = 'UTC'
+    try {
+      const { data: profileTz } = await supabaseClient
+        .from('profiles')
+        .select('time_zone')
+        .eq('id', userId)
+        .single()
+      if (profileTz?.time_zone && typeof profileTz.time_zone === 'string') {
+        tz = profileTz.time_zone
+      }
+    } catch (_) {}
     // Fetch test to get category_id
     const { data: test } = await supabaseClient
       .from('tests')
@@ -299,33 +311,135 @@ async function updateUserAnalytics(supabaseClient: any, userId: string, testId: 
       }
     })
 
-    // Calculate streak
-    const { data: recentActivity } = await supabaseClient
-      .from('test_attempts')
-      .select('submitted_at')
+    // Calculate streak across multiple activity sources
+    // Sources: adaptive practice (practice_sessions), mock/company-specific (test_attempts joined tests), assignments (student_assignments), custom tests (custom_mock_tests)
+    const today = new Date()
+    // Helper: format date in user's timezone as YYYY-MM-DD and key as UTC ms of tz-midnight
+    const tzFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    const tzYmd = (d: Date): string => tzFormatter.format(d)
+    const ymdToKey = (ymd: string): number => {
+      const [y, m, dd] = ymd.split('-').map((v) => parseInt(v, 10))
+      return Date.UTC(y, (m as number) - 1, dd)
+    }
+    const tzKeyFromTs = (ts: string | Date): number => ymdToKey(tzYmd(new Date(ts)))
+
+    const todayKey = tzKeyFromTs(today)
+    const yesterdayDate = new Date(todayKey)
+    yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1)
+    const yesterdayKey = yesterdayDate.getTime()
+
+    // Preferred source: consolidated user_daily_activity table
+    const { data: daily } = await supabaseClient
+      .from('user_daily_activity')
+      .select('activity_date')
       .eq('user_id', userId)
-      .order('submitted_at', { ascending: false })
-      .limit(30)
+      .order('activity_date', { ascending: false })
+      .limit(500)
 
+    const activityDates = new Set<number>()
+
+    if (daily && daily.length > 0) {
+      daily.forEach((row: any) => {
+        // activity_date is stored as DATE; parse components to avoid timezone ambiguity
+        const dateStr = String(row.activity_date)
+        activityDates.add(ymdToKey(dateStr))
+      })
+    } else {
+      // Fallback: fetch from individual sources if consolidation table is empty
+      const [testActs, practiceActs, assignmentActs, customActs] = await Promise.all([
+        supabaseClient
+          .from('test_attempts')
+          .select('submitted_at, test:tests(test_type)')
+          .eq('user_id', userId)
+          .not('submitted_at', 'is', null)
+          .order('submitted_at', { ascending: false })
+          .limit(500),
+        supabaseClient
+          .from('practice_sessions')
+          .select('completed_at, created_at')
+          .eq('user_id', userId)
+          .order('completed_at', { ascending: false })
+          .limit(500),
+        supabaseClient
+          .from('student_assignments')
+          .select('completed_at')
+          .eq('student_id', userId)
+          .not('completed_at', 'is', null)
+          .order('completed_at', { ascending: false })
+          .limit(500),
+        supabaseClient
+          .from('custom_mock_tests')
+          .select('completed_at, started_at, status')
+          .eq('user_id', userId)
+          .order('completed_at', { ascending: false })
+          .limit(500),
+      ])
+
+      ;(testActs.data || []).forEach((row: any) => {
+        const testType = Array.isArray(row.test) ? row.test[0]?.test_type : row.test?.test_type
+        if (testType === 'mock' || testType === 'company_specific') {
+          activityDates.add(tzKeyFromTs(row.submitted_at))
+        }
+      })
+
+      ;(practiceActs.data || []).forEach((row: any) => {
+        const ts = row.completed_at || row.created_at
+        if (!ts) return
+        activityDates.add(tzKeyFromTs(ts))
+      })
+
+      ;(assignmentActs.data || []).forEach((row: any) => {
+        activityDates.add(tzKeyFromTs(row.completed_at))
+      })
+
+      ;(customActs.data || []).forEach((row: any) => {
+        const ts = row.status === 'completed' ? row.completed_at : null
+        if (!ts) return
+        activityDates.add(tzKeyFromTs(ts))
+      })
+    }
+
+    // Compute current streak (count through today if present, else through yesterday if present) in user's timezone
     let currentStreak = 0
-    if (recentActivity && recentActivity.length > 0) {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      
-      let checkDate = new Date(today)
-      const activityDates = new Set(
-        recentActivity.map((a: any) => {
-          const d = new Date(a.submitted_at)
-          d.setHours(0, 0, 0, 0)
-          return d.getTime()
-        })
-      )
-
-      while (activityDates.has(checkDate.getTime())) {
-        currentStreak++
-        checkDate.setDate(checkDate.getDate() - 1)
+    if (activityDates.size > 0) {
+      let anchor = activityDates.has(todayKey)
+        ? new Date(todayKey)
+        : (activityDates.has(yesterdayKey) ? new Date(yesterdayKey) : null)
+      if (anchor) {
+        while (activityDates.has(anchor.getTime())) {
+          currentStreak++
+          anchor.setUTCDate(anchor.getUTCDate() - 1)
+        }
       }
     }
+
+    // Compute longest streak (DST-safe by comparing calendar-day keys)
+    let longestStreak = 0
+    if (activityDates.size > 0) {
+      const days = Array.from(activityDates.values()).sort((a, b) => a - b)
+      let run = 1
+      for (let i = 1; i < days.length; i++) {
+        const prevKey = days[i - 1]
+        const currKey = days[i]
+        const expPrev = new Date(currKey)
+        expPrev.setUTCDate(expPrev.getUTCDate() - 1)
+        if (expPrev.getTime() === prevKey) {
+          run += 1
+        } else {
+          longestStreak = Math.max(longestStreak, run)
+          run = 1
+        }
+      }
+      longestStreak = Math.max(longestStreak, run)
+    }
+
+    // Last activity date for display
+    const lastActivityDate = activityDates.size > 0 ? new Date(Math.max(...Array.from(activityDates.values()))) : null
 
     // Upsert user_analytics
     const { error: analyticsError } = await supabaseClient
@@ -340,7 +454,8 @@ async function updateUserAnalytics(supabaseClient: any, userId: string, testId: 
         weak_areas: weakAreas,
         strengths: strengths,
         current_streak_days: currentStreak,
-        last_activity_date: new Date().toISOString().split('T')[0],
+        longest_streak_days: longestStreak,
+        last_activity_date: lastActivityDate ? new Date(lastActivityDate).toISOString().split('T')[0] : null,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,category_id',

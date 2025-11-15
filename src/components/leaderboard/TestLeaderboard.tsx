@@ -57,20 +57,46 @@ export function TestLeaderboard({ testId, currentUserId }: TestLeaderboardProps)
           .not('submitted_at', 'is', null)
           .order('score', { ascending: false })
           .order('time_taken_seconds', { ascending: true })
-          .limit(100)
+          .order('submitted_at', { ascending: true })
+          .limit(200)
 
         if (attempts) {
-          const leaderboard: TestLeaderboardEntry[] = attempts.map((attempt: any, index: number) => ({
-            rank: index + 1,
-            userId: attempt.user_id,
-            fullName: attempt.user?.full_name || 'Anonymous',
-            college: attempt.user?.college || null,
-            score: attempt.score,
-            totalMarks: test?.total_marks || 100,
-            percentage: test?.total_marks ? (attempt.score / test.total_marks) * 100 : 0,
-            timeTaken: attempt.time_taken_seconds,
-            submittedAt: attempt.submitted_at,
-          }))
+          const bestByUser = new Map<string, any>()
+          attempts.forEach((attempt: any) => {
+            const uid = attempt.user_id
+            if (!uid) return
+            if (!bestByUser.has(uid)) {
+              bestByUser.set(uid, attempt)
+              return
+            }
+            const prev = bestByUser.get(uid)
+            if (
+              attempt.score > prev.score ||
+              (attempt.score === prev.score && attempt.time_taken_seconds < prev.time_taken_seconds) ||
+              (attempt.score === prev.score && attempt.time_taken_seconds === prev.time_taken_seconds && new Date(attempt.submitted_at).getTime() < new Date(prev.submitted_at).getTime())
+            ) {
+              bestByUser.set(uid, attempt)
+            }
+          })
+
+          const leaderboard: TestLeaderboardEntry[] = Array.from(bestByUser.values())
+            .map((attempt: any) => ({
+              userId: attempt.user_id,
+              fullName: attempt.user?.full_name || 'Anonymous',
+              college: attempt.user?.college || null,
+              score: attempt.score,
+              totalMarks: test?.total_marks || 100,
+              percentage: test?.total_marks ? (attempt.score / test.total_marks) * 100 : 0,
+              timeTaken: attempt.time_taken_seconds,
+              submittedAt: attempt.submitted_at,
+            }))
+            .sort((a: any, b: any) => {
+              if (b.score !== a.score) return b.score - a.score
+              if (a.timeTaken !== b.timeTaken) return a.timeTaken - b.timeTaken
+              return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
+            })
+            .slice(0, 100)
+            .map((entry: any, index: number) => ({ ...entry, rank: index + 1 }))
 
           setRankings(leaderboard)
         }
@@ -213,7 +239,7 @@ export function TestLeaderboard({ testId, currentUserId }: TestLeaderboardProps)
           return (
             <Card
               key={`${entry.userId}-${entry.submittedAt}`}
-              className={`transition-all ${
+              className={`relative transition-all ${
                 isCurrentUser
                   ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 shadow-md'
                   : 'hover:shadow-md'
@@ -263,6 +289,17 @@ export function TestLeaderboard({ testId, currentUserId }: TestLeaderboardProps)
                   </div>
                 </div>
               </CardContent>
+              {entry.rank <= 3 && (
+                <div className={`absolute -top-2 -left-2 px-2 py-1 rounded-md text-xs font-semibold shadow ${
+                  entry.rank === 1
+                    ? 'bg-yellow-500 text-white'
+                    : entry.rank === 2
+                    ? 'bg-gray-400 text-white'
+                    : 'bg-orange-500 text-white'
+                }`}>
+                  {entry.rank === 1 ? 'Gold' : entry.rank === 2 ? 'Silver' : 'Bronze'}
+                </div>
+              )}
             </Card>
           )
         })}

@@ -26,7 +26,6 @@ export default async function LeaderboardPage() {
     .eq('is_published', true)
     .order('created_at', { ascending: false })
 
-  // Fetch global leaderboard (all-time top performers)
   const { data: globalLeaderboard } = await supabase
     .from('test_attempts')
     .select(`
@@ -47,28 +46,52 @@ export default async function LeaderboardPage() {
     `)
     .not('submitted_at', 'is', null)
     .order('score', { ascending: false })
-    .limit(50)
+    .order('time_taken_seconds', { ascending: true })
+    .order('submitted_at', { ascending: true })
+    .limit(200)
 
-  // Calculate ranks and percentages for global leaderboard
-  const processedGlobalLeaderboard = globalLeaderboard?.map((attempt: any, index) => ({
-    rank: index + 1,
-    userId: attempt.user?.id,
-    userName: attempt.user?.full_name || 'Anonymous',
-    college: attempt.user?.college,
-    score: attempt.score,
-    totalMarks: attempt.test?.total_marks || 100,
-    percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
-    timeTaken: attempt.time_taken_seconds,
-    testTitle: attempt.test?.title,
-    submittedAt: attempt.submitted_at,
-  })) || []
+  const bestByUserGlobal = new Map<string, any>()
+  ;(globalLeaderboard || []).forEach((attempt: any) => {
+    const uid = attempt.user?.id
+    if (!uid) return
+    if (!bestByUserGlobal.has(uid)) {
+      bestByUserGlobal.set(uid, attempt)
+      return
+    }
+    const prev = bestByUserGlobal.get(uid)
+    if (
+      attempt.score > prev.score ||
+      (attempt.score === prev.score && attempt.time_taken_seconds < prev.time_taken_seconds) ||
+      (attempt.score === prev.score && attempt.time_taken_seconds === prev.time_taken_seconds && new Date(attempt.submitted_at).getTime() < new Date(prev.submitted_at).getTime())
+    ) {
+      bestByUserGlobal.set(uid, attempt)
+    }
+  })
+  const processedGlobalLeaderboard = Array.from(bestByUserGlobal.values())
+    .map((attempt: any) => ({
+      userId: attempt.user?.id,
+      userName: attempt.user?.full_name || 'Anonymous',
+      college: attempt.user?.college,
+      score: attempt.score,
+      totalMarks: attempt.test?.total_marks || 100,
+      percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
+      timeTaken: attempt.time_taken_seconds,
+      testTitle: attempt.test?.title,
+      submittedAt: attempt.submitted_at,
+    }))
+    .sort((a: any, b: any) => {
+      if (b.score !== a.score) return b.score - a.score
+      if (a.timeTaken !== b.timeTaken) return a.timeTaken - b.timeTaken
+      return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
+    })
+    .slice(0, 50)
+    .map((entry: any, index: number) => ({ ...entry, rank: index + 1 }))
 
   // Find current user's global rank
   const userGlobalRank = processedGlobalLeaderboard.findIndex(
     (entry) => entry.userId === user.id
   ) + 1
 
-  // Fetch weekly leaderboard (last 7 days)
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const { data: weeklyLeaderboard } = await supabase
     .from('test_attempts')
@@ -91,26 +114,51 @@ export default async function LeaderboardPage() {
     .gte('submitted_at', weekAgo)
     .not('submitted_at', 'is', null)
     .order('score', { ascending: false })
-    .limit(50)
+    .order('time_taken_seconds', { ascending: true })
+    .order('submitted_at', { ascending: true })
+    .limit(200)
 
-  const processedWeeklyLeaderboard = weeklyLeaderboard?.map((attempt: any, index) => ({
-    rank: index + 1,
-    userId: attempt.user?.id,
-    userName: attempt.user?.full_name || 'Anonymous',
-    college: attempt.user?.college,
-    score: attempt.score,
-    totalMarks: attempt.test?.total_marks || 100,
-    percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
-    timeTaken: attempt.time_taken_seconds,
-    testTitle: attempt.test?.title,
-    submittedAt: attempt.submitted_at,
-  })) || []
+  const bestByUserWeekly = new Map<string, any>()
+  ;(weeklyLeaderboard || []).forEach((attempt: any) => {
+    const uid = attempt.user?.id
+    if (!uid) return
+    if (!bestByUserWeekly.has(uid)) {
+      bestByUserWeekly.set(uid, attempt)
+      return
+    }
+    const prev = bestByUserWeekly.get(uid)
+    if (
+      attempt.score > prev.score ||
+      (attempt.score === prev.score && attempt.time_taken_seconds < prev.time_taken_seconds) ||
+      (attempt.score === prev.score && attempt.time_taken_seconds === prev.time_taken_seconds && new Date(attempt.submitted_at).getTime() < new Date(prev.submitted_at).getTime())
+    ) {
+      bestByUserWeekly.set(uid, attempt)
+    }
+  })
+  const processedWeeklyLeaderboard = Array.from(bestByUserWeekly.values())
+    .map((attempt: any) => ({
+      userId: attempt.user?.id,
+      userName: attempt.user?.full_name || 'Anonymous',
+      college: attempt.user?.college,
+      score: attempt.score,
+      totalMarks: attempt.test?.total_marks || 100,
+      percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
+      timeTaken: attempt.time_taken_seconds,
+      testTitle: attempt.test?.title,
+      submittedAt: attempt.submitted_at,
+    }))
+    .sort((a: any, b: any) => {
+      if (b.score !== a.score) return b.score - a.score
+      if (a.timeTaken !== b.timeTaken) return a.timeTaken - b.timeTaken
+      return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
+    })
+    .slice(0, 50)
+    .map((entry: any, index: number) => ({ ...entry, rank: index + 1 }))
 
   const userWeeklyRank = processedWeeklyLeaderboard.findIndex(
     (entry) => entry.userId === user.id
   ) + 1
 
-  // Fetch monthly leaderboard (last 30 days)
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const { data: monthlyLeaderboard } = await supabase
     .from('test_attempts')
@@ -133,20 +181,46 @@ export default async function LeaderboardPage() {
     .gte('submitted_at', monthAgo)
     .not('submitted_at', 'is', null)
     .order('score', { ascending: false })
-    .limit(50)
+    .order('time_taken_seconds', { ascending: true })
+    .order('submitted_at', { ascending: true })
+    .limit(200)
 
-  const processedMonthlyLeaderboard = monthlyLeaderboard?.map((attempt: any, index) => ({
-    rank: index + 1,
-    userId: attempt.user?.id,
-    userName: attempt.user?.full_name || 'Anonymous',
-    college: attempt.user?.college,
-    score: attempt.score,
-    totalMarks: attempt.test?.total_marks || 100,
-    percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
-    timeTaken: attempt.time_taken_seconds,
-    testTitle: attempt.test?.title,
-    submittedAt: attempt.submitted_at,
-  })) || []
+  const bestByUserMonthly = new Map<string, any>()
+  ;(monthlyLeaderboard || []).forEach((attempt: any) => {
+    const uid = attempt.user?.id
+    if (!uid) return
+    if (!bestByUserMonthly.has(uid)) {
+      bestByUserMonthly.set(uid, attempt)
+      return
+    }
+    const prev = bestByUserMonthly.get(uid)
+    if (
+      attempt.score > prev.score ||
+      (attempt.score === prev.score && attempt.time_taken_seconds < prev.time_taken_seconds) ||
+      (attempt.score === prev.score && attempt.time_taken_seconds === prev.time_taken_seconds && new Date(attempt.submitted_at).getTime() < new Date(prev.submitted_at).getTime())
+    ) {
+      bestByUserMonthly.set(uid, attempt)
+    }
+  })
+  const processedMonthlyLeaderboard = Array.from(bestByUserMonthly.values())
+    .map((attempt: any) => ({
+      userId: attempt.user?.id,
+      userName: attempt.user?.full_name || 'Anonymous',
+      college: attempt.user?.college,
+      score: attempt.score,
+      totalMarks: attempt.test?.total_marks || 100,
+      percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
+      timeTaken: attempt.time_taken_seconds,
+      testTitle: attempt.test?.title,
+      submittedAt: attempt.submitted_at,
+    }))
+    .sort((a: any, b: any) => {
+      if (b.score !== a.score) return b.score - a.score
+      if (a.timeTaken !== b.timeTaken) return a.timeTaken - b.timeTaken
+      return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
+    })
+    .slice(0, 50)
+    .map((entry: any, index: number) => ({ ...entry, rank: index + 1 }))
 
   const userMonthlyRank = processedMonthlyLeaderboard.findIndex(
     (entry) => entry.userId === user.id

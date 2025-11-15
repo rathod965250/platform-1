@@ -89,20 +89,47 @@ export function LeaderboardContent({
         .eq('test_id', testId)
         .not('submitted_at', 'is', null)
         .order('score', { ascending: false })
-        .limit(50)
+        .order('time_taken_seconds', { ascending: true })
+        .order('submitted_at', { ascending: true })
+        .limit(200)
 
-      const processed = data?.map((attempt: any, index) => ({
-        rank: index + 1,
-        userId: attempt.user?.id,
-        userName: attempt.user?.full_name || 'Anonymous',
-        college: attempt.user?.college,
-        score: attempt.score,
-        totalMarks: attempt.test?.total_marks || 100,
-        percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
-        timeTaken: attempt.time_taken_seconds,
-        testTitle: attempt.test?.title,
-        submittedAt: attempt.submitted_at,
-      })) || []
+      const bestByUser = new Map<string, any>()
+      ;(data || []).forEach((attempt: any) => {
+        const uid = attempt.user?.id
+        if (!uid) return
+        if (!bestByUser.has(uid)) {
+          bestByUser.set(uid, attempt)
+          return
+        }
+        const prev = bestByUser.get(uid)
+        if (
+          attempt.score > prev.score ||
+          (attempt.score === prev.score && attempt.time_taken_seconds < prev.time_taken_seconds) ||
+          (attempt.score === prev.score && attempt.time_taken_seconds === prev.time_taken_seconds && new Date(attempt.submitted_at).getTime() < new Date(prev.submitted_at).getTime())
+        ) {
+          bestByUser.set(uid, attempt)
+        }
+      })
+
+      const processed = Array.from(bestByUser.values())
+        .map((attempt: any) => ({
+          userId: attempt.user?.id,
+          userName: attempt.user?.full_name || 'Anonymous',
+          college: attempt.user?.college,
+          score: attempt.score,
+          totalMarks: attempt.test?.total_marks || 100,
+          percentage: ((attempt.score / (attempt.test?.total_marks || 100)) * 100).toFixed(1),
+          timeTaken: attempt.time_taken_seconds,
+          testTitle: attempt.test?.title,
+          submittedAt: attempt.submitted_at,
+        }))
+        .sort((a: any, b: any) => {
+          if (b.score !== a.score) return b.score - a.score
+          if (a.timeTaken !== b.timeTaken) return a.timeTaken - b.timeTaken
+          return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
+        })
+        .slice(0, 50)
+        .map((entry: any, index: number) => ({ ...entry, rank: index + 1 }))
 
       setTestLeaderboard(processed)
     } catch (error) {
@@ -158,12 +185,23 @@ export function LeaderboardContent({
           return (
             <div
               key={`${entry.userId}-${entry.submittedAt}`}
-              className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+              className={`relative flex items-center justify-between p-4 rounded-lg border transition-colors ${
                 isCurrentUser
                   ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700'
                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
               }`}
             >
+              {entry.rank <= 3 && (
+                <div className={`absolute -top-2 -left-2 px-2 py-1 rounded-md text-xs font-semibold shadow ${
+                  entry.rank === 1
+                    ? 'bg-yellow-500 text-white'
+                    : entry.rank === 2
+                    ? 'bg-gray-400 text-white'
+                    : 'bg-orange-500 text-white'
+                }`}>
+                  {entry.rank === 1 ? 'Gold' : entry.rank === 2 ? 'Silver' : 'Bronze'}
+                </div>
+              )}
               <div className="flex items-center gap-4 flex-1">
                 {/* Rank Badge */}
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getRankBadgeColor(entry.rank)}`}>
