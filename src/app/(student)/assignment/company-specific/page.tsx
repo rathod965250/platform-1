@@ -164,12 +164,28 @@ export default async function CompanySpecificTestsPage() {
     .eq('user_id', user.id)
     .limit(5000)
 
+  type MaybeArray<T> = T | T[] | null | undefined
+
+  const normalizeRelation = <T>(relation: MaybeArray<T>): T | undefined => {
+    if (!relation) {
+      return undefined
+    }
+    return Array.isArray(relation) ? relation[0] : relation
+  }
+
+  type CategoryRelation = { id?: unknown; name?: unknown }
+  type SubcategoryRelation = { category?: MaybeArray<CategoryRelation> }
+  type QuestionRelation = { subcategory?: MaybeArray<SubcategoryRelation> }
+
   // Calculate category-wise performance for weak areas
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
-  
+
   allUserMetrics?.forEach((metric) => {
-    const category = metric.question?.subcategory?.category
-    if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category) {
+    const question = normalizeRelation<QuestionRelation>(metric.question as MaybeArray<QuestionRelation>)
+    const subcategory = question ? normalizeRelation<SubcategoryRelation>(question.subcategory) : undefined
+    const category = subcategory ? normalizeRelation<CategoryRelation>(subcategory.category) : undefined
+
+    if (category && typeof category === 'object' && 'id' in category && 'name' in category) {
       const categoryName = String(category.name)
       const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }
       current.total += 1
