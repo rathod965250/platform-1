@@ -166,7 +166,7 @@ export default async function CompanySpecificTestsPage() {
 
   type MaybeArray<T> = T | T[] | null | undefined
 
-  const normalizeRelation = <T>(relation: MaybeArray<T>): T | undefined => {
+  const normalizeRelation = <T,>(relation: MaybeArray<T>): T | undefined => {
     if (!relation) {
       return undefined
     }
