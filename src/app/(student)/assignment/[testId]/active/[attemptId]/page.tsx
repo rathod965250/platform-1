@@ -84,7 +84,7 @@ export default async function ActiveTestPage({ params }: PageProps) {
   const questions = (questionsRaw || []).map((question: any) => {
     const subcategory = extractRelationship(question.subcategory)
     if (subcategory && typeof subcategory === 'object') {
-      const category = extractRelationship(subcategory.category)
+      const category = 'category' in subcategory ? extractRelationship(subcategory.category) : null
       return {
         ...question,
         subcategory: {
