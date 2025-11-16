@@ -44,8 +44,14 @@ export default async function TestResultsPage({ params }: PageProps) {
   const userProfile = extractRelationship(attemptRaw.user)
   const attempt = {
     ...attemptRaw,
-    user: userProfile && typeof userProfile === 'object' && 'full_name' in userProfile
-      ? { full_name: userProfile.full_name, email: userProfile.email }
+    user: userProfile
+      && typeof userProfile === 'object'
+      && 'full_name' in userProfile
+      && 'email' in userProfile
+      ? {
+          full_name: userProfile.full_name,
+          email: userProfile.email,
+        }
       : null,
   }
 
@@ -103,32 +109,53 @@ export default async function TestResultsPage({ params }: PageProps) {
   const answers = sanitizeSupabaseResult(answersRaw || []).map((answer: any) => {
     const question = extractRelationship(answer.question)
     if (question && typeof question === 'object') {
-      const subcategory = extractRelationship(question.subcategory)
+      const rawSubcategory = 'subcategory' in question ? (question as Record<string, unknown>).subcategory : null
+      const subcategory = extractRelationship(rawSubcategory)
+
       if (subcategory && typeof subcategory === 'object') {
-        const category = extractRelationship(subcategory.category)
-        return {
-          ...answer,
-          question: {
-            ...question,
-            subcategory: {
-              ...subcategory,
-              category: category && typeof category === 'object' && 'id' in category
-                ? { id: category.id, name: category.name, slug: category.slug }
-                : null,
+        const subcategoryId = 'id' in subcategory ? subcategory.id : undefined
+        const subcategoryName = 'name' in subcategory ? subcategory.name : undefined
+        const subcategorySlug = 'slug' in subcategory ? subcategory.slug : undefined
+
+        const rawCategory = 'category' in subcategory ? subcategory.category : null
+        const category = extractRelationship(rawCategory)
+        const safeCategory = category
+          && typeof category === 'object'
+          && 'id' in category
+          && 'name' in category
+          && 'slug' in category
+          ? {
+              id: category.id,
+              name: category.name,
+              slug: category.slug,
+            }
+          : null
+
+        if (subcategoryId || subcategoryName || subcategorySlug || safeCategory) {
+          return {
+            ...answer,
+            question: {
+              ...question,
+              subcategory: {
+                ...(subcategoryId ? { id: subcategoryId } : {}),
+                ...(subcategoryName ? { name: subcategoryName } : {}),
+                ...(subcategorySlug ? { slug: subcategorySlug } : {}),
+                category: safeCategory,
+              },
             },
-          },
+          }
         }
       }
+
       return {
         ...answer,
         question: {
           ...question,
-          subcategory: subcategory && typeof subcategory === 'object'
-            ? { id: subcategory.id, name: subcategory.name, slug: subcategory.slug }
-            : null,
+          subcategory: null,
         },
       }
     }
+
     return {
       ...answer,
       question: question && typeof question === 'object' ? question : null,

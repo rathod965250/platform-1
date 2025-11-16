@@ -83,8 +83,9 @@ export default async function ActiveTestPage({ params }: PageProps) {
   // Sanitize each question's nested relationships
   const questions = (questionsRaw || []).map((question: any) => {
     const subcategory = extractRelationship(question.subcategory)
-    if (subcategory && typeof subcategory === 'object') {
-      const category = 'category' in subcategory ? extractRelationship(subcategory.category) : null
+    if (subcategory && typeof subcategory === 'object' && 'name' in subcategory) {
+      const rawCategory = 'category' in subcategory ? subcategory.category : null
+      const category = extractRelationship(rawCategory)
       return {
         ...question,
         subcategory: {
@@ -97,9 +98,7 @@ export default async function ActiveTestPage({ params }: PageProps) {
     }
     return {
       ...question,
-      subcategory: subcategory && typeof subcategory === 'object'
-        ? { name: subcategory.name }
-        : null,
+      subcategory: null,
     }
   }).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
 
