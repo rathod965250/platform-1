@@ -140,7 +140,7 @@ export function useCompanies() {
               schema: 'public',
               table: 'companies',
             },
-            async (payload) => {
+            async (payload: any) => {
               if (mounted) {
                 console.log('🔄 Companies realtime event:', payload.eventType)
                 // Small delay to ensure database is updated
@@ -149,7 +149,7 @@ export function useCompanies() {
               }
             }
           )
-          .subscribe((status, err) => {
+          .subscribe((status: any, err: any) => {
             if (status === 'SUBSCRIBED') {
               console.log('✅ Subscribed to companies realtime')
             } else if (status === 'CHANNEL_ERROR') {

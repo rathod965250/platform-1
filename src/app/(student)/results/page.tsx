@@ -167,18 +167,19 @@ export default async function ResultsPage() {
     .limit(5000)
 
   // Sanitize user metrics - filter out Supabase metadata from nested relationships
-  const allUserMetrics = sanitizeSupabaseResult(allUserMetricsRaw || []).map((metric: any) => {
+  const sanitizedMetrics = sanitizeSupabaseResult(allUserMetricsRaw || [])
+  const allUserMetrics = (Array.isArray(sanitizedMetrics) ? sanitizedMetrics : []).map((metric: any) => {
     const question = extractRelationship(metric.question)
     if (question && typeof question === 'object') {
-      const subcategory = extractRelationship(question.subcategory)
+      const subcategory = extractRelationship((question as any).subcategory)
       if (subcategory && typeof subcategory === 'object') {
-        const category = extractRelationship(subcategory.category)
+        const category = extractRelationship((subcategory as any).category)
         return {
           ...metric,
           question: {
             subcategory: {
               category: category && typeof category === 'object' && 'id' in category
-                ? { id: category.id, name: category.name }
+                ? { id: (category as any).id, name: (category as any).name }
                 : null,
             },
           },
@@ -202,7 +203,8 @@ export default async function ResultsPage() {
   // Calculate category-wise performance for weak areas
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
-  allUserMetrics.forEach((metric) => {
+  allUserMetrics.forEach((metric: any) => {
+    // Access the nested structure from Supabase join
     const category = metric.question?.subcategory?.category
     if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category && !('cardinality' in category)) {
       const categoryName = String(category.name)
@@ -225,7 +227,7 @@ export default async function ResultsPage() {
   })
 
   // Also add categories with low mastery scores
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     const categoryName = state.category?.name
     if (categoryName) {
       const mastery = typeof state.mastery_score === 'number'

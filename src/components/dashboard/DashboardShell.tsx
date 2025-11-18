@@ -149,7 +149,7 @@ function DashboardShellContent({
 
         // Filter out messages user has already viewed
         const unreadMessages = messages.filter(
-          (msg) => !viewedMessages.includes(msg.id)
+          (msg: any) => !viewedMessages.includes(msg.id)
         )
 
         setUnreadRepliesCount(unreadMessages.length)
@@ -197,15 +197,15 @@ function DashboardShellContent({
     ]
 
     if (pathname === '/dashboard') {
-      items.push({ label: 'Dashboard', href: null })
+      items.push({ label: 'Dashboard', href: '' })
     } else if (pathname === '/practice' || pathname?.startsWith('/practice/')) {
       items.push({ label: 'Practice', href: '/practice' })
       if (pathname === '/practice/configure') {
-        items.push({ label: 'Configure', href: null })
+        items.push({ label: 'Configure', href: '' })
       } else if (pathname?.includes('/adaptive/')) {
-        items.push({ label: 'Adaptive Practice', href: null })
+        items.push({ label: 'Adaptive Practice', href: '' })
       } else if (pathname?.includes('/summary')) {
-        items.push({ label: 'Summary', href: null })
+        items.push({ label: 'Summary', href: '' })
       }
     } else if (pathname === '/assignments' || pathname?.startsWith('/assignments/')) {
       items.push({ label: 'Assignments', href: '/assignments' })
@@ -218,9 +218,9 @@ function DashboardShellContent({
       } else if (pathname === '/test/custom' || pathname?.startsWith('/test/custom/')) {
         items.push({ label: 'Custom Test', href: '/test/custom' })
       } else if (pathname?.includes('/active/')) {
-        items.push({ label: 'Active Test', href: null })
+        items.push({ label: 'Active Test', href: '' })
       } else if (pathname?.includes('/results/')) {
-        items.push({ label: 'Results', href: null })
+        items.push({ label: 'Results', href: '' })
       }
     } else if (pathname === '/results' || pathname?.startsWith('/results/')) {
       items.push({ label: 'Results', href: '/results' })
@@ -240,7 +240,7 @@ function DashboardShellContent({
       if (pathParts.length > 0) {
         const pageName = pathParts[pathParts.length - 1]
         const capitalized = pageName.charAt(0).toUpperCase() + pageName.slice(1).replace(/-/g, ' ')
-        items.push({ label: capitalized, href: null })
+        items.push({ label: capitalized, href: '' })
       }
     }
 

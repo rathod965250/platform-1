@@ -233,8 +233,8 @@ export default async function PracticePage() {
     .from('user_metrics')
     .select(`
       is_correct,
-      question:questions(
-        subcategory:subcategories(
+      questions!inner(
+        subcategories!inner(
           category_id
         )
       )
@@ -246,8 +246,8 @@ export default async function PracticePage() {
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
   // Add performance from user_metrics
-  allUserMetrics?.forEach((metric) => {
-    const categoryId = metric.question?.subcategory?.category_id
+  allUserMetrics?.forEach((metric: any) => {
+    const categoryId = metric.questions?.subcategories?.category_id
     if (categoryId) {
       const current = categoryPerformanceMap.get(categoryId) || { correct: 0, total: 0 }
       current.total += 1
@@ -260,7 +260,11 @@ export default async function PracticePage() {
 
   // Add performance from attempt_answers (test attempts)
   attemptAnswers?.forEach((answer) => {
-    const categoryId = answer.question?.subcategory?.category_id
+    // Handle nested array structure from Supabase relations
+    const question = Array.isArray(answer.question) ? answer.question[0] : answer.question
+    const subcategory = question && Array.isArray(question.subcategory) ? question.subcategory[0] : question?.subcategory
+    // Ensure subcategory is not an array before accessing category_id
+    const categoryId = subcategory && !Array.isArray(subcategory) ? subcategory.category_id : null
     if (categoryId) {
       const current = categoryPerformanceMap.get(categoryId) || { correct: 0, total: 0 }
       current.total += 1
@@ -273,7 +277,11 @@ export default async function PracticePage() {
 
   // Add performance from session_answers (practice sessions)
   sessionAnswers?.forEach((answer) => {
-    const categoryId = answer.question?.subcategory?.category_id
+    // Handle nested array structure from Supabase relations
+    const question = Array.isArray(answer.question) ? answer.question[0] : answer.question
+    const subcategory = question && Array.isArray(question.subcategory) ? question.subcategory[0] : question?.subcategory
+    // Ensure subcategory is not an array before accessing category_id
+    const categoryId = subcategory && !Array.isArray(subcategory) ? subcategory.category_id : null
     if (categoryId) {
       const current = categoryPerformanceMap.get(categoryId) || { correct: 0, total: 0 }
       current.total += 1

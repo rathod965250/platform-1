@@ -81,7 +81,7 @@ export function StatsBar() {
         let totalAttempts = 0
 
         if (analytics) {
-          analytics.forEach((analytic) => {
+          analytics.forEach((analytic: any) => {
             if (analytic.total_practice_hours) {
               totalHours += Number(analytic.total_practice_hours)
             }
@@ -94,7 +94,7 @@ export function StatsBar() {
           .select('score, test_id')
 
         if (attempts && attempts.length > 0) {
-          attempts.forEach((attempt) => {
+          attempts.forEach((attempt: any) => {
             totalAttempts++
             // Consider score above 60% as successful
             if (attempt.score && typeof attempt.score === 'number') {

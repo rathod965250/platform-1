@@ -73,8 +73,8 @@ export default async function TestSelectionPage() {
   })
 
   // Group tests by type
-  const mockTests = tests.filter(t => t.test_type === 'mock')
-  const companyTests = tests.filter(t => t.test_type === 'company_specific')
+  const mockTests = tests.filter((t: any) => t.test_type === 'mock')
+  const companyTests = tests.filter((t: any) => t.test_type === 'company_specific')
 
   // Fetch user's completed test attempts to check which tests are already taken
   const { data: userCompletedAttempts } = await supabase
@@ -92,8 +92,8 @@ export default async function TestSelectionPage() {
   )
 
   // Count completed tests by type
-  const completedMockTests = mockTests.filter(t => completedTestIds.has(t.id)).length
-  const completedCompanyTests = companyTests.filter(t => completedTestIds.has(t.id)).length
+  const completedMockTests = mockTests.filter((t: any) => completedTestIds.has(t.id)).length
+  const completedCompanyTests = companyTests.filter((t: any) => completedTestIds.has(t.id)).length
 
   // Fetch user profile for DashboardShell
   const { data: profile } = await supabase
@@ -117,7 +117,8 @@ export default async function TestSelectionPage() {
     .order('submitted_at', { ascending: false })
 
   // Sanitize test attempts - extract test relationship safely
-  const testAttempts = sanitizeSupabaseResult(testAttemptsRaw || []).map((attempt: any) => {
+  const sanitizedAttempts = sanitizeSupabaseResult(testAttemptsRaw || [])
+  const testAttempts = (Array.isArray(sanitizedAttempts) ? sanitizedAttempts : []).map((attempt: any) => {
     const test = extractRelationship(attempt.test)
     return {
       ...attempt,
@@ -136,11 +137,11 @@ export default async function TestSelectionPage() {
   // Calculate stats for DashboardShell
   const totalTests = testAttempts?.length || 0
   const totalPracticeQuestions = practiceSessions?.reduce((sum, session) => sum + (session.total_questions || 0), 0) || 0
-  const totalTestQuestions = testAttempts?.reduce((sum, attempt) => sum + attempt.total_questions, 0) || 0
+  const totalTestQuestions = testAttempts?.reduce((sum: number, attempt: any) => sum + attempt.total_questions, 0) || 0
   const totalQuestionsAnswered = totalTestQuestions + totalPracticeQuestions
 
   const avgScore = totalTests > 0
-    ? testAttempts!.reduce((sum, attempt) => {
+    ? testAttempts!.reduce((sum: number, attempt: any) => {
         const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
         const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
         const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
@@ -162,7 +163,7 @@ export default async function TestSelectionPage() {
 
   // Build recent activity for DashboardShell
   const recentActivity = [
-    ...(testAttempts?.slice(0, 3).map(attempt => {
+    ...(testAttempts?.slice(0, 3).map((attempt: any) => {
       const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
       const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
       return {
@@ -188,7 +189,7 @@ export default async function TestSelectionPage() {
     .slice(0, 5)
 
   // Performance trend for DashboardShell
-  const performanceTrend = testAttempts?.slice(0, 10).reverse().map((attempt, index) => {
+  const performanceTrend = testAttempts?.slice(0, 10).reverse().map((attempt: any, index: number) => {
     const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
     const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
     const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
@@ -211,7 +212,7 @@ export default async function TestSelectionPage() {
 
   // Build mastery levels map
   const masteryLevels: Record<string, number> = {}
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     if (state.category?.name) {
       const mastery = typeof state.mastery_score === 'number'
         ? state.mastery_score
@@ -225,9 +226,9 @@ export default async function TestSelectionPage() {
     .from('user_metrics')
     .select(`
       is_correct,
-      question:questions(
-        subcategory:subcategories(
-          category:categories(id, name)
+      questions!inner(
+        subcategories!inner(
+          categories!inner(id, name)
         )
       )
     `)
@@ -237,9 +238,10 @@ export default async function TestSelectionPage() {
   // Calculate category-wise performance for weak areas
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
-  allUserMetrics?.forEach((metric) => {
-    const category = metric.question?.subcategory?.category
-    if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category) {
+  allUserMetrics?.forEach((metric: any) => {
+    // Access the nested structure from Supabase join
+    const category = metric.questions?.subcategories?.categories
+    if (category && typeof category === 'object' && 'id' in category && 'name' in category) {
       const categoryName = String(category.name)
       const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }
       current.total += 1
@@ -260,7 +262,7 @@ export default async function TestSelectionPage() {
   })
 
   // Also add categories with low mastery scores
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     const categoryName = state.category?.name
     if (categoryName) {
       const mastery = typeof state.mastery_score === 'number'
@@ -372,7 +374,7 @@ export default async function TestSelectionPage() {
               Mock Tests
             </h2>
             <div className="grid gap-4">
-              {mockTests.map((test) => (
+              {mockTests.map((test: any) => (
                 <Card key={test.id} className="p-6 hover:shadow-lg transition-shadow">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -423,7 +425,7 @@ export default async function TestSelectionPage() {
               Company Specific Tests
             </h2>
             <div className="grid gap-4">
-              {companyTests.map((test) => (
+              {companyTests.map((test: any) => (
                 <Card key={test.id} className="p-6 hover:shadow-lg transition-shadow">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

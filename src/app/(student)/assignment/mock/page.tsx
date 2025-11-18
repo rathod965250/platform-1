@@ -155,9 +155,9 @@ export default async function MockTestsPage() {
     .from('user_metrics')
     .select(`
       is_correct,
-      question:questions(
-        subcategory:subcategories(
-          category:categories(id, name)
+      questions!inner(
+        subcategories!inner(
+          categories!inner(id, name)
         )
       )
     `)
@@ -167,9 +167,10 @@ export default async function MockTestsPage() {
   // Calculate category-wise performance for weak areas
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
-  allUserMetrics?.forEach((metric) => {
-    const category = metric.question?.subcategory?.category
-    if (category && typeof category === 'object' && !Array.isArray(category) && 'id' in category && 'name' in category) {
+  allUserMetrics?.forEach((metric: any) => {
+    // Access the nested structure from Supabase join
+    const category = metric.questions?.subcategories?.categories
+    if (category && typeof category === 'object' && 'id' in category && 'name' in category) {
       const categoryName = String(category.name)
       const current = categoryPerformanceMap.get(categoryName) || { correct: 0, total: 0 }
       current.total += 1

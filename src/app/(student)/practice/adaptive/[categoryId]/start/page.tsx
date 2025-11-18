@@ -50,7 +50,7 @@ export default async function AdaptivePracticePage({ params, searchParams }: Pag
   // Verify session exists and belongs to user
   const { data: session } = await supabase
     .from('practice_sessions')
-    .select('*')
+    .select('*, total_questions')
     .eq('id', sessionId)
     .eq('user_id', user.id)
     .single()
@@ -59,12 +59,16 @@ export default async function AdaptivePracticePage({ params, searchParams }: Pag
     redirect(`/practice/configure/${categoryId}`)
   }
 
+  // Get question count from session, default to 20 if not set
+  const questionCount = session.total_questions || 20
+
   return (
     <AdaptivePracticeInterface
       category={category}
       sessionId={sessionId}
       selectedSubcategories={selectedSubcategories}
       subcategories={subcategories || []}
+      questionCount={questionCount}
     />
   )
 }

@@ -124,13 +124,14 @@ export default async function MyMessagesPage() {
     .eq('user_id', user.id)
 
   // Sanitize adaptiveStates - filter out Supabase metadata and ensure proper data structure
-  const adaptiveStates = sanitizeSupabaseResult(adaptiveStatesRaw || []).map((state: any) => {
+  const sanitizedStates = sanitizeSupabaseResult(adaptiveStatesRaw || [])
+  const adaptiveStates = (Array.isArray(sanitizedStates) ? sanitizedStates : []).map((state: any) => {
     // Extract category relationship safely
     const category = extractRelationship(state.category)
     return {
       ...state,
       category: category && typeof category === 'object' && 'name' in category 
-        ? { name: category.name, id: category.id } 
+        ? { name: (category as any).name, id: (category as any).id } 
         : null,
     }
   })
@@ -166,18 +167,19 @@ export default async function MyMessagesPage() {
       .in('attempt_id', attemptIds)
 
     // Sanitize answers - filter out Supabase metadata from nested relationships
-    const allAnswers = sanitizeSupabaseResult(allAnswersRaw || []).map((answer: any) => {
+    const sanitizedAnswers = sanitizeSupabaseResult(allAnswersRaw || [])
+    const allAnswers = (Array.isArray(sanitizedAnswers) ? sanitizedAnswers : []).map((answer: any) => {
       const question = extractRelationship(answer.question)
       if (question && typeof question === 'object') {
-        const subcategory = extractRelationship(question.subcategory)
+        const subcategory = extractRelationship((question as any).subcategory)
         if (subcategory && typeof subcategory === 'object') {
-          const category = extractRelationship(subcategory.category)
+          const category = extractRelationship((subcategory as any).category)
           return {
             ...answer,
             question: {
               subcategory: {
                 category: category && typeof category === 'object' && 'name' in category
-                  ? { name: category.name }
+                  ? { name: (category as any).name }
                   : null,
               },
             },
@@ -199,7 +201,7 @@ export default async function MyMessagesPage() {
     })
 
     // Process answers in-memory
-    allAnswers.forEach((answer) => {
+    allAnswers.forEach((answer: any) => {
       const question = answer.question
       if (question && question.subcategory && question.subcategory.category) {
         const category = question.subcategory.category
@@ -218,7 +220,7 @@ export default async function MyMessagesPage() {
   }
 
   // Also check adaptive states for mastery scores
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     const categoryName = state.category?.name || 'Other'
     const mastery = typeof state.mastery_score === 'number'
       ? state.mastery_score
@@ -239,7 +241,7 @@ export default async function MyMessagesPage() {
   })
 
   // Also add categories with low mastery scores
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     const categoryName = state.category?.name
     if (categoryName) {
       const mastery = typeof state.mastery_score === 'number'

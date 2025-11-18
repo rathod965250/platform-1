@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     // Check if profile exists (should be created by trigger)
     const { data: existingProfile } = await supabase
       .from('profiles')
-      .select('id, full_name, avatar_url')
+      .select('id, full_name, email, avatar_url')
       .eq('id', user.id)
       .single()
 

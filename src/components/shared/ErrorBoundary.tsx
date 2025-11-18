@@ -39,7 +39,7 @@ export class ErrorBoundary extends React.Component<
     // Log to error tracking service in production
     // Example: Sentry.captureException(error, { contexts: { react: errorInfo } })
     // For now, log structured error data
-    if (typeof window !== 'undefined' && window.navigator?.sendBeacon) {
+    if (typeof window !== 'undefined' && 'sendBeacon' in window.navigator) {
       try {
         const errorData = {
           message: error?.message || 'Unknown error',

@@ -167,8 +167,8 @@ export default async function CompanySpecificTestsPage() {
   // Calculate category-wise performance for weak areas
   const categoryPerformanceMap = new Map<string, { correct: number; total: number }>()
   
-  allUserMetrics?.forEach((metric) => {
-    const subcategories = metric.question?.subcategory
+  allUserMetrics?.forEach((metric: any) => {
+    const subcategories = (metric.question as any)?.subcategory
     if (subcategories && Array.isArray(subcategories) && subcategories.length > 0) {
       const category = subcategories[0]?.category
       if (category && Array.isArray(category) && category.length > 0) {
@@ -196,7 +196,7 @@ export default async function CompanySpecificTestsPage() {
   })
 
   // Also add categories with low mastery scores
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     const categoryName = state.category?.name
     if (categoryName) {
       const mastery = typeof state.mastery_score === 'number'

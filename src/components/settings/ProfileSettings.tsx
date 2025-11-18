@@ -300,7 +300,7 @@ export function ProfileSettings({
           />
           <Button
             type="button"
-            onClick={handleAddCompany}
+            onClick={() => handleAddCompany()}
             disabled={!targetCompaniesInput.trim()}
             className="text-xs sm:text-sm md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-4 sm:px-6"
           >

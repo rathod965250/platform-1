@@ -155,7 +155,7 @@ export function useGraduationYears() {
               schema: 'public',
               table: 'graduation_years',
             },
-            async (payload) => {
+            async (payload: any) => {
               if (mounted) {
                 console.log('🔄 Graduation years realtime event:', payload.eventType)
                 // Small delay to ensure database is updated
@@ -164,7 +164,7 @@ export function useGraduationYears() {
               }
             }
           )
-          .subscribe((status, err) => {
+          .subscribe((status: any, err: any) => {
             if (status === 'SUBSCRIBED') {
               console.log('✅ Subscribed to graduation years realtime')
             } else if (status === 'CHANNEL_ERROR') {

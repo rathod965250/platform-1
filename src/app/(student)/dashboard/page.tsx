@@ -147,13 +147,14 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
 
   // Sanitize adaptiveStates - filter out Supabase metadata and ensure proper data structure
-  const adaptiveStates = sanitizeSupabaseResult(adaptiveStatesRaw || []).map((state: any) => {
+  const sanitizedStates = sanitizeSupabaseResult(adaptiveStatesRaw || [])
+  const adaptiveStates = (Array.isArray(sanitizedStates) ? sanitizedStates : []).map((state: any) => {
     // Extract category relationship safely
     const category = extractRelationship(state.category)
     return {
       ...state,
       category: category && typeof category === 'object' && 'name' in category 
-        ? { name: category.name, id: category.id } 
+        ? { name: (category as any).name, id: (category as any).id } 
         : null,
     }
   })
@@ -178,18 +179,19 @@ export default async function DashboardPage() {
       .in('attempt_id', attemptIds)
 
     // Sanitize answers - filter out Supabase metadata from nested relationships
-    const allAnswers = sanitizeSupabaseResult(allAnswersRaw || []).map((answer: any) => {
+    const sanitizedAnswers = sanitizeSupabaseResult(allAnswersRaw || [])
+    const allAnswers = (Array.isArray(sanitizedAnswers) ? sanitizedAnswers : []).map((answer: any) => {
       const question = extractRelationship(answer.question)
       if (question && typeof question === 'object') {
-        const subcategory = extractRelationship(question.subcategory)
+        const subcategory = extractRelationship((question as any).subcategory)
         if (subcategory && typeof subcategory === 'object') {
-          const category = extractRelationship(subcategory.category)
+          const category = extractRelationship((subcategory as any).category)
           return {
             ...answer,
             question: {
               subcategory: {
                 category: category && typeof category === 'object' && 'name' in category
-                  ? { name: category.name }
+                  ? { name: (category as any).name }
                   : null,
               },
             },
@@ -211,7 +213,7 @@ export default async function DashboardPage() {
     })
 
     // Process answers in-memory
-    allAnswers.forEach((answer) => {
+    allAnswers.forEach((answer: any) => {
       const question = answer.question
       if (question && question.subcategory && question.subcategory.category) {
         const category = question.subcategory.category
@@ -230,7 +232,7 @@ export default async function DashboardPage() {
   }
 
   // Also check adaptive states for mastery scores
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     const categoryName = state.category?.name || 'Other'
     const mastery = typeof state.mastery_score === 'number' 
       ? state.mastery_score 
@@ -250,7 +252,7 @@ export default async function DashboardPage() {
     .map(([name]) => name)
 
   // Also add categories with low mastery scores
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     const categoryName = state.category?.name || 'Other'
     const mastery = typeof state.mastery_score === 'number'
       ? state.mastery_score
@@ -262,7 +264,7 @@ export default async function DashboardPage() {
 
   // Build mastery levels map
   const masteryLevels: Record<string, number> = {}
-  adaptiveStates?.forEach((state) => {
+  adaptiveStates?.forEach((state: any) => {
     if (state.category?.name) {
       const mastery = typeof state.mastery_score === 'number'
         ? state.mastery_score
@@ -293,7 +295,9 @@ export default async function DashboardPage() {
   // Calculate global leaderboard ranks
   const globalLeaderboard = allTestAttempts
     ?.map(attempt => {
-      const totalMarks = attempt.test?.total_marks || 100
+      const test = Array.isArray(attempt.test) ? attempt.test[0] : attempt.test
+      const testObj = test && typeof test === 'object' && !Array.isArray(test) ? test : null
+      const totalMarks = (testObj && 'total_marks' in testObj && typeof testObj.total_marks === 'number' ? testObj.total_marks : 100)
       const percentage = (attempt.score / totalMarks) * 100
       return {
         userId: attempt.user_id,

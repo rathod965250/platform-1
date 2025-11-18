@@ -82,7 +82,7 @@ export function AccountModals({
         .select('id, time_taken_seconds')
         .eq('user_id', userId)
 
-      const time = testAttempts?.reduce((sum, attempt) => sum + (attempt.time_taken_seconds || 0), 0) || 0
+      const time = testAttempts?.reduce((sum: number, attempt: any) => sum + (attempt.time_taken_seconds || 0), 0) || 0
       setTotalTimeSpent(time)
     }
 

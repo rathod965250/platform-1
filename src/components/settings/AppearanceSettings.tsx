@@ -187,8 +187,8 @@ export function AppearanceSettings({
       } else {
         toast.success('Appearance preferences reset to defaults!')
         // Apply default theme
-        if (defaultPreferences.themeMode !== 'system') {
-          setTheme(defaultPreferences.themeMode)
+        if (defaultPreferences.themeMode && defaultPreferences.themeMode !== 'system') {
+          setTheme(defaultPreferences.themeMode as 'light' | 'dark')
         }
       }
     } catch (error: any) {

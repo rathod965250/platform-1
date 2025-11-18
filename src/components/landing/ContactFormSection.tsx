@@ -74,7 +74,7 @@ export function ContactFormSection() {
         .eq('email', emailToCheck.trim().toLowerCase())
         .order('created_at', { ascending: false })
         .limit(1)
-        .then(({ data: messages }) => {
+        .then(({ data: messages }: { data: any }) => {
           if (messages && messages.length > 0 && messages[0].reply) {
             setUserMessage(messages[0])
           } else {

@@ -62,7 +62,7 @@ export function useCategories() {
               schema: 'public',
               table: 'categories',
             },
-            async (payload) => {
+            async (payload: any) => {
               if (mounted) {
                 console.log('🔄 Categories realtime event:', payload.eventType)
                 // Small delay to ensure database is updated
@@ -71,7 +71,7 @@ export function useCategories() {
               }
             }
           )
-          .subscribe((status, err) => {
+          .subscribe((status: any, err: any) => {
             if (status === 'SUBSCRIBED') {
               console.log('✅ Subscribed to categories realtime')
             } else if (status === 'CHANNEL_ERROR') {

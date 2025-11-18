@@ -443,7 +443,7 @@ export function TestimonialsSection() {
             schema: 'public',
             table: 'testimonials',
           },
-          async (payload) => {
+          async (payload: any) => {
             console.log('🔄 Realtime event received:', payload.eventType, payload.new || payload.old)
             
             // Small delay to ensure database is updated
@@ -479,7 +479,7 @@ export function TestimonialsSection() {
             }
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: any) => {
           if (status === 'SUBSCRIBED') {
             console.log('✅ Realtime subscription active for testimonials table')
           } else if (status === 'CHANNEL_ERROR') {

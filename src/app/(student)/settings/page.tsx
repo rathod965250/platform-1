@@ -124,13 +124,14 @@ export default async function SettingsPage() {
     .eq('user_id', user.id)
 
   // Sanitize adaptiveStates - filter out Supabase metadata and ensure proper data structure
-  const adaptiveStates = sanitizeSupabaseResult(adaptiveStatesRaw || []).map((state: any) => {
+  const sanitizedStates = sanitizeSupabaseResult(adaptiveStatesRaw || [])
+  const adaptiveStates = (Array.isArray(sanitizedStates) ? sanitizedStates : []).map((state: any) => {
     // Extract category relationship safely
     const category = extractRelationship(state.category)
     return {
       ...state,
       category: category && typeof category === 'object' && 'name' in category 
-        ? { name: category.name, id: category.id } 
+        ? { name: (category as any).name, id: (category as any).id } 
         : null,
     }
   })

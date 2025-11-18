@@ -140,7 +140,7 @@ export function useColleges() {
               schema: 'public',
               table: 'colleges',
             },
-            async (payload) => {
+            async (payload: any) => {
               if (mounted) {
                 console.log('🔄 Colleges realtime event:', payload.eventType)
                 // Small delay to ensure database is updated
@@ -149,7 +149,7 @@ export function useColleges() {
               }
             }
           )
-          .subscribe((status, err) => {
+          .subscribe((status: any, err: any) => {
             if (status === 'SUBSCRIBED') {
               console.log('✅ Subscribed to colleges realtime')
             } else if (status === 'CHANNEL_ERROR') {

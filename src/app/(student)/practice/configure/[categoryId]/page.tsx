@@ -72,7 +72,7 @@ export default function PracticeConfigurePage() {
         }
 
         // Get question counts per subcategory
-        const subcategoryIds = subcategoriesData.map(s => s.id)
+        const subcategoryIds = subcategoriesData.map((s: any) => s.id)
         const { data: allQuestions, error: questionsError } = await supabase
           .from('questions')
           .select('subcategory_id')
@@ -89,7 +89,7 @@ export default function PracticeConfigurePage() {
           }
         })
 
-        const subcategoriesWithCounts = subcategoriesData.map(sub => ({
+        const subcategoriesWithCounts = subcategoriesData.map((sub: any) => ({
           ...sub,
           questionCount: questionCounts[sub.id] || 0,
         }))
@@ -123,7 +123,7 @@ export default function PracticeConfigurePage() {
     if (selectedSubcategories.size === subcategories.length) {
       setSelectedSubcategories(new Set())
     } else {
-      setSelectedSubcategories(new Set(subcategories.map(s => s.id)))
+      setSelectedSubcategories(new Set(subcategories.map((s: any) => s.id)))
     }
   }
 
@@ -202,7 +202,7 @@ export default function PracticeConfigurePage() {
         if (subcatError) {
           console.error('Error fetching subcategories:', subcatError)
         } else if (subcategoriesData && subcategoriesData.length > 0) {
-          const slugs = subcategoriesData.map(s => s.slug)
+          const slugs = subcategoriesData.map((s: any) => s.slug)
           console.log('Found subcategory slugs:', slugs)
 
           // Try querying by joining with subcategories table
@@ -229,9 +229,9 @@ export default function PracticeConfigurePage() {
       const topicsWithoutQuestions: string[] = []
       
       // Check each selected topic
-      selectedIds.forEach((topicId) => {
+      selectedIds.forEach((topicId: string) => {
         if (!topicsWithQuestions.has(topicId)) {
-          const topic = subcategories.find(s => s.id === topicId)
+          const topic = subcategories.find((s: any) => s.id === topicId)
           if (topic) {
             topicsWithoutQuestions.push(topic.name)
           }

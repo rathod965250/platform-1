@@ -141,7 +141,7 @@ export function useCourses() {
               schema: 'public',
               table: 'courses',
             },
-            async (payload) => {
+            async (payload: any) => {
               if (mounted) {
                 console.log('🔄 Courses realtime event:', payload.eventType)
                 // Small delay to ensure database is updated
@@ -150,7 +150,7 @@ export function useCourses() {
               }
             }
           )
-          .subscribe((status, err) => {
+          .subscribe((status: any, err: any) => {
             if (status === 'SUBSCRIBED') {
               console.log('✅ Subscribed to courses realtime')
             } else if (status === 'CHANNEL_ERROR') {

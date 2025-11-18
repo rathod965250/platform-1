@@ -37,11 +37,13 @@ export function parseMultipleReplies(replyText: string | null | undefined): Pars
     const trimmed = part.trim()
     
     // Check if this part has a timestamp header like "[Additional Reply - Dec 15, 2024, 10:30 AM]"
-    const timestampMatch = trimmed.match(/^\[Additional Reply - (.+?)\]\n\n(.*)$/s)
+    const timestampMatch = trimmed.match(/^\[Additional Reply - (.+?)\][\s\S]*$/)
     
     if (timestampMatch) {
+      // Extract the text after the timestamp header
+      const textPart = trimmed.substring(trimmed.indexOf('\n\n') + 2)
       return {
-        text: timestampMatch[2].trim(),
+        text: textPart.trim(),
         timestamp: timestampMatch[1].trim(),
         isFirst: false,
       }
