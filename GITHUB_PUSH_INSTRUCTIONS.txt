@@ -1,0 +1,46 @@
+# Instructions to Push Code to GitHub Repository
+
+## Step 1: Fork the Repository
+1. Go to https://github.com/dhanavathsrikanth/crackatom1
+2. Click the "Fork" button in the top right corner
+3. Choose your GitHub account as the destination for the fork
+
+## Step 2: Clone Your Fork
+```bash
+git clone https://github.com/YOUR_USERNAME/crackatom1.git
+cd crackatom1
+```
+
+## Step 3: Apply the Changes
+You have two options:
+
+### Option A: Copy the files manually
+1. Copy all the files from this directory to your cloned repository
+2. Commit and push the changes
+
+### Option B: Use the patch file
+1. Copy the `platform-fixes.patch` file to your cloned repository
+2. Apply the patch:
+```bash
+git apply platform-fixes.patch
+git add .
+git commit -m "Fix TypeScript build errors and update configuration for production build"
+git push origin main
+```
+
+## Step 4: Create a Pull Request
+1. Go to your fork on GitHub
+2. Click "Contribute" or "New pull request"
+3. Select "Create pull request"
+4. Add a descriptive title and description
+5. Submit the pull request
+
+## Alternative: Create Your Own Repository
+If you don't have access to the original repository:
+
+1. Create a new repository on GitHub
+2. Change the remote URL:
+```bash
+git remote set-url origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git
+git push -u origin main
+```
