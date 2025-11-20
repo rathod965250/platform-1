@@ -155,7 +155,7 @@ export function LoginForm() {
       <Button
         type="button"
         variant="outline"
-        className="w-full border-border hover:bg-accent/50 hover:border-border/80 transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm sm:text-base md:text-base min-h-[44px] sm:min-h-[48px] md:h-12"
+        className="w-full border-border hover:bg-accent/50 hover:border-border/80 transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm sm:text-base md:text-base min-h-[44px] sm:min-h-[48px] md:h-12 cursor-pointer"
         onClick={handleGoogleLogin}
         disabled={isLoading || isGoogleLoading}
       >
