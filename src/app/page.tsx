@@ -5,6 +5,7 @@ import { PartnerLogosSection } from "@/components/landing/PartnerLogosSection";
 import { StepsSection } from "@/components/landing/StepsSection";
 import { PerformanceFeaturesSection } from "@/components/landing/PerformanceFeaturesSection";
 import { IntegrationsSection } from "@/components/landing/IntegrationsSection";
+import { DashboardUISection } from "@/components/landing/DashboardUISection";
 
 import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { FAQSection } from "@/components/landing/FAQSection";
@@ -72,39 +73,20 @@ export default function Home() {
 
   return (
     <>
-      {/* Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationStructuredData) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
-      />
+      {[
+        structuredData,
+        organizationStructuredData,
+        websiteStructuredData,
+      ].map((data, idx) => (
+        <script key={idx} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+      ))}
 
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div id="home-page" className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         <HeroSection />
         <PartnerLogosSection />
         
-        {/* Dashboard UI Placeholder - Add actual dashboard UI here */}
-        <section className="pt-16 md:pt-24 pb-0 bg-background">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
-              {/* Placeholder div for dashboard UI - Replace with actual dashboard content */}
-              <div className="min-h-[400px] rounded-2xl border-2 border-dashed border-border bg-card/50 flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <p className="text-lg font-medium mb-2">Dashboard UI Section</p>
-                  <p className="text-sm">Add your platform dashboard UI here</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <DashboardUISection />
         
         <StepsSection />
         <PerformanceFeaturesSection />

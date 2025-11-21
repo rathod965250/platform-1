@@ -16,7 +16,6 @@ import {
   Award,
   Building2,
   Upload,
-  ChevronRight,
   Clock,
   BookOpen,
   MessageSquare,
@@ -104,16 +103,10 @@ function DashboardShellContent({
 }: DashboardShellProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const [isTestMenuOpen, setIsTestMenuOpen] = useState(false)
   const [unreadRepliesCount, setUnreadRepliesCount] = useState(0)
   const [recentReplies, setRecentReplies] = useState<any[]>([])
 
-  // Auto-expand test menu when on test page
-  React.useEffect(() => {
-    if (pathname === '/test' || pathname === '/test/mock' || pathname === '/test/company-specific' || pathname === '/test/custom' || (pathname?.startsWith('/test/') && !pathname?.startsWith('/test/active/') && !pathname?.startsWith('/test/results/'))) {
-      setIsTestMenuOpen(true)
-    }
-  }, [pathname])
+  
 
   // Fetch unread replies count
   React.useEffect(() => {
@@ -328,49 +321,53 @@ function DashboardShellContent({
                     <SidebarMenuButton 
                       asChild
                       isActive={pathname === '/test' || pathname?.startsWith('/test/')}
-                      className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
                       tooltip="Test"
+                      className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
                     >
-                      <Link href="/test" onClick={(e) => {
-                        e.preventDefault()
-                        setIsTestMenuOpen(!isTestMenuOpen)
-                        router.push('/test')
-                      }}>
+                      <Link href="/test">
                         <ClipboardList className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
                         <span className="font-sans flex-1 min-w-0">Test</span>
-                        <ChevronRight 
-                          className={`ml-auto size-4 sm:size-4 md:size-5 transition-transform duration-200 shrink-0 group-data-[collapsible=icon]:hidden ${isTestMenuOpen ? 'rotate-90' : ''}`} 
-                        />
                       </Link>
                     </SidebarMenuButton>
-                    {isTestMenuOpen && (
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname === '/test/mock' || pathname?.startsWith('/test/mock/')} className="text-xs sm:text-sm md:text-base font-medium min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary font-sans [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:justify-center">
-                            <Link href="/test/mock">
-                              <FileText className="size-4 sm:size-4 md:size-5 shrink-0 group-data-[collapsible=icon]:size-4" />
-                              <span className="flex-1 min-w-0">Mock Tests</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname === '/test/company-specific' || pathname?.startsWith('/test/company-specific/')} className="text-xs sm:text-sm md:text-base font-medium min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary font-sans [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:justify-center">
-                            <Link href="/test/company-specific">
-                              <Building2 className="size-4 sm:size-4 md:size-5 shrink-0 group-data-[collapsible=icon]:size-4" />
-                              <span className="flex-1 min-w-0">Company Specific</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname === '/test/custom' || pathname?.startsWith('/test/custom/')} className="text-xs sm:text-sm md:text-base font-medium min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary font-sans [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:justify-center">
-                            <Link href="/test/custom">
-                              <Upload className="size-4 sm:size-4 md:size-5 shrink-0 group-data-[collapsible=icon]:size-4" />
-                              <span className="flex-1 min-w-0">Custom Test</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      </SidebarMenuSub>
-                    )}
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={pathname === '/test/mock' || pathname?.startsWith('/test/mock/')}
+                      tooltip="Mock Tests"
+                      className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
+                    >
+                      <Link href="/test/mock">
+                        <FileText className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Mock Tests</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={pathname === '/test/company-specific' || pathname?.startsWith('/test/company-specific/')}
+                      tooltip="Company Specific"
+                      className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
+                    >
+                      <Link href="/test/company-specific">
+                        <Building2 className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Company Specific</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={pathname === '/test/custom' || pathname?.startsWith('/test/custom/')}
+                      tooltip="Custom Test"
+                      className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5"
+                    >
+                      <Link href="/test/custom">
+                        <Upload className="size-5 sm:size-5 md:size-6 shrink-0 group-data-[collapsible=icon]:size-5" />
+                        <span className="font-sans flex-1 min-w-0">Custom Test</span>
+                      </Link>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={pathname === '/results' || pathname?.startsWith('/results/')} tooltip="My Results" className="text-sm sm:text-base md:text-base font-medium min-h-[44px] sm:min-h-[48px] px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-primary/10 hover:text-primary transition-all duration-200 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm [&>span:last-child]:!truncate-none [&>span]:whitespace-normal group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-1.5">

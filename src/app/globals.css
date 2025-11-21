@@ -325,6 +325,12 @@
     @apply text-sm sm:text-base;
     font-family: var(--font-sans);
   }
+
+  #home-page a:hover,
+  #home-page button:hover,
+  #home-page [role="button"]:hover {
+    cursor: pointer;
+  }
 }
 
 @keyframes fadeInUp {
